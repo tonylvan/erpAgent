@@ -1,0 +1,20 @@
+# Python
+backend/.venv/
+backend/__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Env
+.env
+backend/.env
+
+# Node / Vue
+frontend/node_modules/
+frontend/dist/
+*.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
