@@ -471,13 +471,13 @@ function nodeShadowFilter(role) {
           </filter>
           <marker
             id="arrow-edge"
-            markerWidth="7"
-            markerHeight="7"
-            refX="6"
-            refY="3.5"
+            markerWidth="9"
+            markerHeight="9"
+            refX="8"
+            refY="4.5"
             orient="auto"
           >
-            <path d="M0,0 L7,3.5 L0,7 Z" fill="#64748b" opacity="0.85" />
+            <path d="M0,0 L9,4.5 L0,9 Z" fill="#334155" opacity="0.9" />
           </marker>
         </defs>
 
@@ -962,23 +962,25 @@ function nodeShadowFilter(role) {
   font-size: 10px;
 }
 .edge-path {
-  stroke-width: 1.5;
+  stroke-width: 2.5;
   pointer-events: none;
 }
 .edge-flow {
-  stroke: #64748b;
-  opacity: 0.85;
+  stroke: #2563eb;
+  stroke-width: 2.8;
+  opacity: 0.95;
 }
 .edge-assoc {
-  stroke: #94a3b8;
-  opacity: 0.55;
-  stroke-dasharray: 5 4;
+  stroke: #0d9488;
+  stroke-width: 2.2;
+  opacity: 0.88;
+  stroke-dasharray: 6 4;
 }
 .edge-weak {
-  stroke: #a78bfa;
-  opacity: 0.45;
-  stroke-width: 1.2;
-  stroke-dasharray: 3 5;
+  stroke: #7c3aed;
+  stroke-width: 2;
+  opacity: 0.8;
+  stroke-dasharray: 4 5;
 }
 .canvas-hint {
   position: relative;
