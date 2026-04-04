@@ -14,12 +14,34 @@ from typing import List, Optional
 from datetime import datetime
 import hashlib
 
-from app.api.v1.auth import get_current_user
+from app.api.v1.auth import get_current_user, UserInfo
 from app.core.database import get_db
 from app.core.ai_analysis import ai_service
 import logging
 
 logger = logging.getLogger(__name__)
+def get_user_id_from_username(db, username: str) -> int:
+    """根据用户名获取用户 ID"""
+    cursor = db.cursor()
+    cursor.execute("SELECT user_id FROM sys_users WHERE username = %s LIMIT 1", (username,))
+    row = cursor.fetchone()
+    cursor.close()
+    if row:
+        return row[0]
+    raise HTTPException(status_code=404, detail="用户不存在")
+
+
+def get_user_id_from_username(db, username: str) -> int:
+    """根据用户名获取用户 ID"""
+    cursor = db.cursor()
+    cursor.execute("SELECT user_id FROM sys_users WHERE username = %s LIMIT 1", (username,))
+    row = cursor.fetchone()
+    cursor.close()
+    if row:
+        return row[0]
+    raise HTTPException(status_code=404, detail="用户不存在")
+
+
 
 router = APIRouter(prefix="/query", tags=["查询历史与收藏"])
 
@@ -87,7 +109,7 @@ class AIAnalysisResponse(BaseModel):
 @router.post("/history", response_model=dict)
 def save_query_history(
     history_data: QueryHistoryCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: UserInfo = Depends(get_current_user),
     db=Depends(get_db)
 ):
     """
@@ -114,7 +136,7 @@ def save_query_history(
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING query_id
         """, (
-            current_user["user_id"],
+            get_user_id_from_username(db, current_user.username),
             history_data.query_text,
             history_data.sql_query,
             history_data.result_snapshot,
@@ -148,7 +170,7 @@ def save_query_history(
 def get_query_history(
     limit: int = 50,
     offset: int = 0,
-    current_user: dict = Depends(get_current_user),
+    current_user: UserInfo = Depends(get_current_user),
     db=Depends(get_db)
 ):
     """
@@ -174,7 +196,7 @@ def get_query_history(
             GROUP BY q.query_id, s.saved_id
             ORDER BY q.created_at DESC
             LIMIT %s OFFSET %s
-        """, (current_user["user_id"], limit, offset))
+        """, (get_user_id_from_username(db, current_user.username), limit, offset))
         
         rows = cursor.fetchall()
         cursor.close()
@@ -208,7 +230,7 @@ def get_query_history(
 @router.post("/save", response_model=dict)
 def save_query(
     save_data: SavedQueryCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: UserInfo = Depends(get_current_user),
     db=Depends(get_db)
 ):
     """
@@ -226,7 +248,7 @@ def save_query(
         # 检查查询是否存在
         cursor.execute("""
             SELECT query_id FROM query_history WHERE query_id = %s AND user_id = %s
-        """, (save_data.query_id, current_user["user_id"]))
+        """, (save_data.query_id, get_user_id_from_username(db, current_user.username)))
         
         if not cursor.fetchone():
             raise HTTPException(
@@ -241,7 +263,7 @@ def save_query(
             VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING saved_id
         """, (
-            current_user["user_id"],
+            get_user_id_from_username(db, current_user.username),
             save_data.query_id,
             save_data.title,
             save_data.description,
@@ -273,7 +295,7 @@ def save_query(
 @router.get("/saved", response_model=List[SavedQueryResponse])
 def get_saved_queries(
     limit: int = 50,
-    current_user: dict = Depends(get_current_user),
+    current_user: UserInfo = Depends(get_current_user),
     db=Depends(get_db)
 ):
     """
@@ -293,7 +315,7 @@ def get_saved_queries(
             WHERE s.user_id = %s
             ORDER BY s.created_at DESC
             LIMIT %s
-        """, (current_user["user_id"], limit))
+        """, (get_user_id_from_username(db, current_user.username), limit))
         
         rows = cursor.fetchall()
         cursor.close()
@@ -326,7 +348,7 @@ def get_saved_queries(
 @router.delete("/saved/{saved_id}")
 def delete_saved_query(
     saved_id: int,
-    current_user: dict = Depends(get_current_user),
+    current_user: UserInfo = Depends(get_current_user),
     db=Depends(get_db)
 ):
     """
@@ -341,7 +363,7 @@ def delete_saved_query(
         cursor.execute("""
             SELECT saved_id FROM saved_queries 
             WHERE saved_id = %s AND user_id = %s
-        """, (saved_id, current_user["user_id"]))
+        """, (saved_id, get_user_id_from_username(db, current_user.username)))
         
         if not cursor.fetchone():
             raise HTTPException(
@@ -377,7 +399,7 @@ def delete_saved_query(
 def submit_feedback(
     query_id: int,
     feedback_data: FeedbackCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: UserInfo = Depends(get_current_user),
     db=Depends(get_db)
 ):
     """
@@ -404,7 +426,7 @@ def submit_feedback(
                 SELECT query_text, sql_query, result_type, execution_time_ms
                 FROM query_history
                 WHERE query_id = %s AND user_id = %s
-            """, (query_id, current_user["user_id"]))
+            """, (query_id, get_user_id_from_username(db, current_user.username)))
             
             row = cursor.fetchone()
             
@@ -443,7 +465,7 @@ def submit_feedback(
             VALUES (%s, %s, %s, %s)
             ON CONFLICT (query_id, user_id) DO UPDATE
             SET feedback_type = EXCLUDED.feedback_type, comment = EXCLUDED.comment
-        """, (query_id, current_user["user_id"], feedback_data.feedback_type, feedback_data.comment))
+        """, (query_id, get_user_id_from_username(db, current_user.username), feedback_data.feedback_type, feedback_data.comment))
         
         db.commit()
         cursor.close()
@@ -468,7 +490,7 @@ def submit_feedback(
 def confirm_feedback_with_ai(
     query_id: int,
     feedback_data: FeedbackCreate,
-    current_user: dict = Depends(get_current_user),
+    current_user: UserInfo = Depends(get_current_user),
     db=Depends(get_db)
 ):
     """
@@ -492,7 +514,7 @@ def confirm_feedback_with_ai(
         cursor.execute("""
             SELECT query_id, query_text, sql_query FROM query_history
             WHERE query_id = %s AND user_id = %s
-        """, (query_id, current_user["user_id"]))
+        """, (query_id, get_user_id_from_username(db, current_user.username)))
         
         row = cursor.fetchone()
         if not row:
@@ -509,7 +531,7 @@ def confirm_feedback_with_ai(
             SET feedback_type = EXCLUDED.feedback_type, 
                 comment = EXCLUDED.comment,
                 updated_at = CURRENT_TIMESTAMP
-        """, (query_id, current_user["user_id"], 'dislike', feedback_data.comment))
+        """, (query_id, get_user_id_from_username(db, current_user.username), 'dislike', feedback_data.comment))
         
         db.commit()
         cursor.close()

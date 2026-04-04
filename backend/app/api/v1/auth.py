@@ -18,6 +18,9 @@ from app.auth.jwt import (
 )
 from app.core.database import get_db
 
+# 导出 UserInfo 供其他模块使用
+__all__ = ["UserInfo", "get_current_user"]
+
 router = APIRouter(prefix="/auth", tags=["认证授权"])
 
 
