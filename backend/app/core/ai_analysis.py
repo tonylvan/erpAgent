@@ -81,9 +81,12 @@ class MiniMaxAIService:
 1. report: 详细的分析报告（Markdown 格式）
 2. issues: 可能的问题列表（数组）
 3. suggestions: 优化建议列表（数组）
-4. confidence: 置信度评分（0-1 之间的小数）
-5. optimized_query: 优化后的查询（如果适用）
-6. expected_improvement: 预期改进（如性能提升百分比）
+4. suggested_reasons: 推荐用户选择的点踩原因（数组，3-5 个常见原因）
+5. confidence: 置信度评分（0-1 之间的小数）
+6. optimized_query: 优化后的查询（如果适用）
+7. expected_improvement: 预期改进（如性能提升百分比）
+
+常见点踩原因参考：查询结果不准确、SQL 性能慢、数据不完整、展示方式不当、时间范围错误、缺少关键指标
 
 请确保 JSON 格式正确，可以直接解析。"""
         
@@ -173,6 +176,7 @@ class MiniMaxAIService:
 中等（60%）""",
             "issues": ["查询理解偏差", "结果展示不当"],
             "suggestions": ["明确查询条件", "添加索引", "优化展示"],
+            "suggested_reasons": ["查询结果不准确", "SQL 性能慢", "数据不完整", "展示方式不当"],
             "confidence": 0.6,
             "optimized_query": None,
             "expected_improvement": "30%"

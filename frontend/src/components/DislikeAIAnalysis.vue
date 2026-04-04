@@ -38,6 +38,23 @@
         />
       </div>
 
+      <!-- 点踩原因推荐 -->
+      <div class="dislike-reasons" v-if="analysisData.suggested_reasons && analysisData.suggested_reasons.length > 0">
+        <h3>🔍 可能的原因 <span class="ai-tag">AI 推荐</span></h3>
+        <el-checkbox-group v-model="selectedReasons">
+          <div class="reason-tags">
+            <el-checkbox
+              v-for="(reason, index) in analysisData.suggested_reasons"
+              :key="index"
+              :label="reason"
+              class="reason-tag"
+            >
+              {{ reason }}
+            </el-checkbox>
+          </div>
+        </el-checkbox-group>
+      </div>
+
       <!-- 用户补充意见 -->
       <div class="user-comment">
         <h3>📝 补充意见（可选）</h3>
@@ -107,6 +124,7 @@ interface AnalysisData {
   issues: string[]
   suggestions: string[]
   confidence: number
+  suggested_reasons: string[]  // AI 推荐的点踩原因
   optimized_query?: string
   expected_improvement?: string
 }
@@ -153,6 +171,7 @@ const analysisData = ref<AnalysisData>({
 })
 
 const selectedOptimizations = ref<string[]>([])
+const selectedReasons = ref<string[]>([])  // 用户选择的点踩原因
 const userComment = ref('')
 const isReanalyzing = ref(false)
 const isConfirming = ref(false)
@@ -223,6 +242,7 @@ const handleConfirm = async () => {
     emit('confirmed', {
       queryId: props.queryId || 0,
       selectedOptimizations: selectedOptimizations.value,
+      selectedReasons: selectedReasons.value,
       userComment: userComment.value,
       analysisData: analysisData.value
     })

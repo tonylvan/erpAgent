@@ -1,4 +1,4 @@
-"""
+﻿"""
 查询历史与收藏管理 API
 
 功能:
@@ -440,21 +440,29 @@ def submit_feedback(
             
             # 调用 AI 服务进行分析
             ai_result = ai_service.analyze_query_feedback(
-                query_text=query_text,
-                sql_query=sql_query,
-                result_type=result_type,
-                execution_time_ms=execution_time_ms,
-                user_comment=feedback_data.comment
+                original_query=query_text,
+                user_comment=feedback_data.comment,
+                query_result={"result_type": result_type},
+                execution_time_ms=execution_time_ms
             )
             
             cursor.close()
             
+            # AI 服务返回格式转换
             return {
                 "success": True,
                 "requires_confirmation": True,
-                "analysis": ai_result["analysis"],
-                "suggested_optimizations": ai_result["suggested_optimizations"],
-                "confidence_score": ai_result["confidence_score"],
+                "analysis": {
+                    "report": ai_result.get("report", ""),
+                    "issues": ai_result.get("issues", []),
+                    "suggestions": ai_result.get("suggestions", []),
+                    "suggested_reasons": ai_result.get("suggested_reasons", []),
+                    "confidence": ai_result.get("confidence", 0.5),
+                    "optimized_query": ai_result.get("optimized_query"),
+                    "expected_improvement": ai_result.get("expected_improvement")
+                },
+                "suggested_optimizations": ai_result.get("suggestions", []),
+                "confidence_score": ai_result.get("confidence", 0.5),
                 "query_id": query_id,
                 "message": "AI 分析完成，请确认分析结果"
             }
