@@ -1,6 +1,6 @@
 """
-GSD Smart Query Backend API v2.7 - DashScope Direct LLM
-Uses DashScope SDK for general questions, Neo4j for ERP queries
+GSD Smart Query Backend API v3.5 - DashScope Direct LLM
+Uses DashScope SDK for general questions and intelligent routing
 """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
@@ -10,7 +10,7 @@ from datetime import datetime
 import dashscope
 from dashscope import Generation
 
-router = APIRouter(tags=["Smart Query v2.7 - DashScope Direct"])
+router = APIRouter(tags=["Smart Query v3.5 - DashScope Direct LLM"])
 
 # Configure API Key
 dashscope.api_key = os.getenv('DASHSCOPE_API_KEY', 'sk-sp-4d5fceda0a674836b4c9a6e70e329330')
@@ -33,7 +33,7 @@ class QueryResponse(BaseModel):
 
 
 class DashScopeCaller:
-    """DashScope LLM Caller - Direct API Call"""
+    """DashScope LLM Caller - Direct SDK Call"""
     
     @staticmethod
     def call(query: str) -> Dict[str, Any]:
@@ -42,7 +42,7 @@ class DashScopeCaller:
             response = Generation.call(
                 model='qwen-plus',
                 messages=[
-                    {'role': 'system', 'content': '你是 GSD 智能问数助手，擅长回答 ERP 数据查询问题和一般性问题。'},
+                    {'role': 'system', 'content': '你是 GSD 智能问数助手，擅长回答 ERP 数据查询问题和一般性问题。回答要简洁、专业、有帮助。'},
                     {'role': 'user', 'content': query}
                 ],
                 result_format='message'
@@ -73,11 +73,11 @@ class DashScopeCaller:
 
 
 @router.post("/query", response_model=QueryResponse)
-async def smart_query_v27(request: QueryRequest):
+async def smart_query_v35(request: QueryRequest):
     """
-    Smart Query v2.7 - DashScope Direct LLM
+    Smart Query v3.5 - DashScope Direct LLM
     
-    Uses DashScope SDK for general questions
+    Uses DashScope SDK for intelligent query answering
     """
     try:
         result = DashScopeCaller.call(request.query)
@@ -106,8 +106,9 @@ async def health_check():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "version": "v2.7",
+        "version": "v3.5",
         "integration": "DashScope Direct SDK",
         "model": "qwen-plus",
+        "api_key_configured": bool(dashscope.api_key),
         "timestamp": datetime.now().isoformat()
     }
