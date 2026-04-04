@@ -172,4 +172,70 @@ const activeOntology = computed(() =>
 .rel-arrow {
   color: #64748b;
 }
+
+/* 📱 手机端优化 (≤768px) */
+@media (max-width: 768px) {
+  .panel {
+    padding: 6px;
+    border-radius: 0;
+  }
+
+  .panel-title {
+    font-size: 13px;
+  }
+
+  .seg-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+
+  .panel-desc {
+    font-size: 11px;
+    margin: 4px 0 6px;
+  }
+
+  .subhead {
+    font-size: 12px;
+    margin: 6px 0 4px;
+  }
+
+  .entity-item,
+  .rel-item {
+    font-size: 11px;
+    padding: 4px 6px;
+  }
+
+  .entity-type {
+    font-size: 12px;
+  }
+
+  .entity-desc {
+    font-size: 10px;
+  }
+
+  .rel-name {
+    font-size: 10px;
+    padding: 1px 4px;
+  }
+}
+
+/* 📱 小屏手机优化 (≤375px) */
+@media (max-width: 375px) {
+  .panel-title {
+    font-size: 12px;
+  }
+
+  .seg-btn {
+    font-size: 11px;
+  }
+
+  .panel-desc {
+    font-size: 10px;
+  }
+
+  .entity-item,
+  .rel-item {
+    font-size: 10px;
+  }
+}
 </style>

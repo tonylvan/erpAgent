@@ -17,6 +17,13 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import router as api_router
 from app.api.v1 import router as api_v1_router
+from app.api.v1.smart_query import router as smart_query_router
+from app.api.v1.smart_query_v2 import router as smart_query_v2_router
+from app.api.v1.smart_query_v25 import router as smart_query_v25_router
+from app.api.v1.smart_query_v26 import router as smart_query_v26_router
+from app.api.v1.smart_query_v27 import router as smart_query_v27_router
+from app.api.v1.auth import router as auth_router
+from app.api.v1.query_history import router as query_history_router
 from app.websocket.server import manager
 
 app = FastAPI(
@@ -60,14 +67,21 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-origins = os.getenv(
-    "CORS_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173",
-).split(",")
-
+# CORS 配置 - 开发环境允许所有 localhost 端口
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[o.strip() for o in origins if o.strip()],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:5176",
+        "http://localhost:5177",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
+        "http://127.0.0.1:5176",
+        "http://127.0.0.1:5177",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -76,6 +90,14 @@ app.add_middleware(
 # 注册路由
 app.include_router(api_router, prefix="/api")  # 旧版 API（兼容）
 app.include_router(api_v1_router, prefix="/api/v1")  # 新版 API v1
+app.include_router(smart_query_router, prefix="/api/v1/smart-query")  # 智能问数 API v1
+app.include_router(smart_query_v2_router, prefix="/api/v1/smart-query-v2")  # 智能问数 API v2（增强版）
+app.include_router(smart_query_v25_router, prefix="/api/v1/smart-query-v25")  # 智能问数 API v2.5（模拟数据）
+app.include_router(smart_query_v26_router, prefix="/api/v1/smart-query-v26")  # 智能问数 API v2.6（OpenClaw HTTP API）
+app.include_router(smart_query_v27_router, prefix="/api/v1/smart-query-v27")  # 智能问数 API v2.7（EBS 关系扩展）
+# P0 功能 - 用户认证与查询历史
+app.include_router(auth_router, prefix="/api/v1")  # auth_router 已有 prefix="/auth" → /api/v1/auth
+app.include_router(query_history_router, prefix="/api/v1")  # query_history_router 已有 prefix="/query" → /api/v1/query
 
 
 @app.get("/health")

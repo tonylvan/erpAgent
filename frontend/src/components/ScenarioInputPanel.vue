@@ -167,4 +167,66 @@ function run() {
   clip: rect(0, 0, 0, 0);
   border: 0;
 }
+
+/* 📱 手机端优化 (≤768px) */
+@media (max-width: 768px) {
+  .panel {
+    padding: 8px;
+    border-radius: 0;
+  }
+
+  .panel-title {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .tabs {
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+
+  .tab {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  .textarea {
+    min-height: 80px;
+    max-height: 120px;
+    font-size: 14px;
+    padding: 10px;
+  }
+
+  .actions {
+    margin-top: 8px;
+  }
+
+  .btn-primary {
+    width: 100%;
+    padding: 12px;
+    font-size: 15px;
+  }
+}
+
+/* 📱 小屏手机优化 (≤375px) */
+@media (max-width: 375px) {
+  .panel-title {
+    font-size: 13px;
+  }
+
+  .tab {
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+
+  .textarea {
+    min-height: 70px;
+    font-size: 13px;
+  }
+
+  .btn-primary {
+    padding: 10px;
+    font-size: 14px;
+  }
+}
 </style>

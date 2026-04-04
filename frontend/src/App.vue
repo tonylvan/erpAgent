@@ -230,4 +230,56 @@ body {
     border-top: 1px solid #e2e8f0;
   }
 }
+
+/* 📱 手机端优化 (≤768px) */
+@media (max-width: 768px) {
+  .workspace {
+    padding: 0;
+  }
+
+  .pane-left {
+    min-height: 280px !important;
+  }
+
+  .pane-right {
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .block-ontology {
+    flex: 1 1 30%;
+    min-height: 200px;
+  }
+
+  .block-scenario {
+    flex: 0 0 auto;
+    order: 2; /* 输入框放在底部 */
+  }
+
+  .block-result {
+    flex: 1 1 60%;
+    min-height: 0;
+    order: 1; /* 结果面板在上面 */
+  }
+}
+
+/* 📱 小屏手机优化 (≤375px) */
+@media (max-width: 375px) {
+  .pane-left {
+    min-height: 240px !important;
+  }
+
+  .pane-right {
+    padding: 4px;
+    gap: 4px;
+  }
+
+  .block-ontology {
+    min-height: 180px;
+  }
+
+  .block-result {
+    min-height: 0;
+  }
+}
 </style>

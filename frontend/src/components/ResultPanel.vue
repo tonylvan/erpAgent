@@ -1,5 +1,6 @@
 <script setup>
-import { computed } from "vue";
+import { computed, ref } from "vue";
+import VuePager from "vue-pager";
 
 const props = defineProps({
   /** { process, conclusion, cypher?, records?, meta?, richHtml? } */
@@ -22,6 +23,10 @@ const props = defineProps({
   },
 });
 
+// 分页配置
+const currentPage = ref(1);
+const pageSize = ref(10);
+
 const recordsJson = computed(() => {
   const r = props.result?.records;
   if (!r || !Array.isArray(r)) return "";
@@ -39,6 +44,38 @@ const recordsTruncated = computed(() => {
   if (s.length <= max) return s;
   return `${s.slice(0, max)}\n\n…（已截断，完整数据见接口返回）`;
 });
+
+// 分页数据
+const totalPages = computed(() => {
+  const r = props.result?.records;
+  if (!r || !Array.isArray(r)) return 0;
+  return Math.ceil(r.length / pageSize.value);
+});
+
+const paginatedRecords = computed(() => {
+  const r = props.result?.records;
+  if (!r || !Array.isArray(r)) return [];
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return r.slice(start, end);
+});
+
+const paginatedJson = computed(() => {
+  try {
+    return JSON.stringify(paginatedRecords.value, null, 2);
+  } catch {
+    return String(paginatedRecords.value);
+  }
+});
+
+// 页码改变时自动滚动到顶部
+function onPageChange(page) {
+  currentPage.value = page;
+  const panel = document.querySelector('.rich-body');
+  if (panel) {
+    panel.scrollTop = 0;
+  }
+}
 </script>
 
 <template>
@@ -69,9 +106,25 @@ const recordsTruncated = computed(() => {
 
       <section v-if="result.records?.length" class="block">
         <h3 class="block-title">
-          查询结果（{{ result.records.length }} 行）
+          查询结果（共 {{ result.records.length }} 行，当前第 {{ currentPage }}/{{ totalPages }} 页）
         </h3>
-        <pre class="code-block json">{{ recordsTruncated }}</pre>
+        <div class="pager-container">
+          <VuePager
+            :total="result.records.length"
+            :page-size="pageSize"
+            :current-page="currentPage"
+            @change="onPageChange"
+          />
+        </div>
+        <pre class="code-block json">{{ paginatedJson }}</pre>
+        <div class="pager-container-bottom">
+          <VuePager
+            :total="result.records.length"
+            :page-size="pageSize"
+            :current-page="currentPage"
+            @change="onPageChange"
+          />
+        </div>
       </section>
 
       <section v-if="result.conclusion" class="block conclusion-block">
@@ -195,5 +248,48 @@ const recordsTruncated = computed(() => {
 }
 .rich-html :deep(strong) {
   color: #0f172a;
+}
+.pager-container {
+  margin: 0.5rem 0;
+  display: flex;
+  justify-content: center;
+}
+.pager-container-bottom {
+  margin: 0.5rem 0 0;
+  display: flex;
+  justify-content: center;
+}
+/* vue-pager 样式覆盖 */
+:deep(.pager) {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+:deep(.pager button) {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #475569;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  transition: all 0.2s;
+}
+:deep(.pager button:hover:not(:disabled)) {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+:deep(.pager button.active) {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+  font-weight: 600;
+}
+:deep(.pager button:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>

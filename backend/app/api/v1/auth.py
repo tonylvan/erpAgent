@@ -2,6 +2,9 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from pydantic import BaseModel
+from typing import List, Optional
+from datetime import datetime
 
 from app.auth.jwt import (
     TokenResponse,
@@ -13,8 +16,18 @@ from app.auth.jwt import (
     get_current_user,
     security,
 )
+from app.core.database import get_db
 
 router = APIRouter(prefix="/auth", tags=["认证授权"])
+
+
+class AuditLog(BaseModel):
+    log_id: int
+    user_id: int
+    action: str
+    resource: str
+    ip_address: Optional[str] = None
+    created_at: datetime
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -53,3 +66,47 @@ def user_logout(
     """
     # TODO: 将 Token 加入黑名单（需要 Redis）
     return {"message": "登出成功"}
+
+
+@router.get("/audit-logs", response_model=List[AuditLog])
+def get_audit_logs(
+    limit: int = 100,
+    offset: int = 0,
+    current_user: UserInfo = Depends(get_current_user),
+    db=Depends(get_db)
+):
+    """
+    查询审计日志（仅管理员）
+    
+    - **limit**: 返回数量限制
+    - **offset**: 偏移量
+    """
+    # TODO: 添加权限检查（仅管理员）
+    try:
+        cursor = db.cursor()
+        cursor.execute("""
+            SELECT log_id, user_id, action, resource, ip_address, created_at
+            FROM sys_audit_logs
+            ORDER BY created_at DESC
+            LIMIT %s OFFSET %s
+        """, (limit, offset))
+        
+        rows = cursor.fetchall()
+        cursor.close()
+        
+        return [
+            AuditLog(
+                log_id=row[0],
+                user_id=row[1],
+                action=row[2],
+                resource=row[3],
+                ip_address=row[4],
+                created_at=row[5]
+            )
+            for row in rows
+        ]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"查询审计日志失败：{str(e)}"
+        )
