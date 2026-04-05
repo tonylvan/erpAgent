@@ -1,0 +1,268 @@
+/* 全局 CSS 变量 - 主题系统 */
+:root {
+  /* 主题色 */
+  --theme-primary: #667eea;
+  --theme-secondary: #764ba2;
+  --theme-success: #67c23a;
+  --theme-warning: #e6a23c;
+  --theme-danger: #f56c6c;
+  --theme-info: #909399;
+  
+  /* 背景色 */
+  --theme-background: #f5f7fa;
+  --theme-surface: #ffffff;
+  
+  /* 文字色 */
+  --theme-text: #333333;
+  --theme-text-secondary: #666666;
+  
+  /* 边框色 */
+  --theme-border: #e0e0e0;
+  
+  /* 间距 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  
+  /* 圆角 */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 9999px;
+  
+  /* 阴影 */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.15);
+  --shadow-xl: 0 8px 40px rgba(0, 0, 0, 0.2);
+  
+  /* 过渡 */
+  --transition-fast: 0.15s;
+  --transition-normal: 0.2s;
+  --transition-slow: 0.3s;
+  
+  /* 字体 */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-size-xs: 12px;
+  --font-size-sm: 14px;
+  --font-size-md: 16px;
+  --font-size-lg: 18px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 32px;
+}
+
+/* 深色模式 */
+body.dark-mode {
+  --theme-primary: #7d8ceb;
+  --theme-secondary: #8b6bb7;
+  --theme-success: #7dd668;
+  --theme-warning: #eebb4d;
+  --theme-danger: #f77d7d;
+  --theme-info: #a0a0a0;
+  --theme-background: #1a1a2e;
+  --theme-surface: #16213e;
+  --theme-text: #e0e0e0;
+  --theme-text-secondary: #a0a0a0;
+  --theme-border: #2a2a3e;
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* 蓝色主题 */
+[data-theme="blue"] {
+  --theme-primary: #2196f3;
+  --theme-secondary: #1976d2;
+  --theme-success: #4caf50;
+  --theme-warning: #ff9800;
+  --theme-danger: #f44336;
+  --theme-info: #607d8b;
+  --theme-background: #e3f2fd;
+  --theme-surface: #ffffff;
+  --theme-text: #1a237e;
+  --theme-text-secondary: #3949ab;
+  --theme-border: #bbdefb;
+}
+
+/* 绿色主题 */
+[data-theme="green"] {
+  --theme-primary: #4caf50;
+  --theme-secondary: #388e3c;
+  --theme-success: #8bc34a;
+  --theme-warning: #ffeb3b;
+  --theme-danger: #f44336;
+  --theme-info: #607d8b;
+  --theme-background: #e8f5e9;
+  --theme-surface: #ffffff;
+  --theme-text: #1b5e20;
+  --theme-text-secondary: #2e7d32;
+  --theme-border: #c8e6c9;
+}
+
+/* 全局样式重置 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  font-family: var(--font-family);
+  font-size: var(--font-size-sm);
+  color: var(--theme-text);
+  background-color: var(--theme-background);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 无障碍 - 屏幕阅读器专用 */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.sr-only:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* 焦点样式 */
+:focus {
+  outline: 2px solid var(--theme-primary);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+:focus-visible {
+  outline: 2px solid var(--theme-primary);
+  outline-offset: 2px;
+}
+
+/* 链接样式 */
+a {
+  color: var(--theme-primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* 按钮基础样式 */
+button {
+  font-family: inherit;
+  font-size: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* 输入框基础样式 */
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--theme-text);
+  background-color: var(--theme-surface);
+  border: 1px solid var(--theme-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-sm) var(--spacing-md);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  outline: none;
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 0 2px var(--theme-primary-20);
+}
+
+/* 卡片基础样式 */
+.card {
+  background-color: var(--theme-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--theme-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--theme-border);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-text-secondary);
+}
+
+/* 减少动画偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+  
+  a {
+    text-decoration: underline;
+  }
+  
+  a[href]::after {
+    content: " (" attr(href) ")";
+  }
+}

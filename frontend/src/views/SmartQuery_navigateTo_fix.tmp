@@ -1,0 +1,10 @@
+// 导航
+function navigateTo(page: string) {
+  if (page === 'alert') {
+    // 跳转到预警中心页面
+    router.push('/')
+  } else if (page === 'graph') {
+    // 跳转到知识图谱页面（使用 URL 参数）
+    router.push('/?page=graph')
+  }
+}

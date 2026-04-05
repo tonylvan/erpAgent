@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from "vue";
-// import VuePager from "vue-pager";
+import VuePager from "vue-pager";
 
 const props = defineProps({
   /** { process, conclusion, cypher?, records?, meta?, richHtml? } */

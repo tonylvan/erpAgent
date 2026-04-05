@@ -1,0 +1,992 @@
+<template>
+  <div class="alert-center">
+    <!-- 顶部标题栏 -->
+    <div class="header">
+      <div class="title">
+        <span class="icon">🚨</span>
+        <h1>企业预警中心</h1>
+        <button class="settings-btn" title="设置">🔔</button>
+      </div>
+      <div class="actions">
+        <button class="refresh-btn" @click="refreshAlerts" :disabled="loading">
+          {{ loading ? '刷新中...' : '🔄 刷新' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="stats-cards">
+      <div class="stat-card red">
+        <div class="stat-icon">🔴</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stats.by_severity.RED || 0 }}</div>
+          <div class="stat-label">高危预警</div>
+        </div>
+      </div>
+      <div class="stat-card orange">
+        <div class="stat-icon">🟠</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stats.by_severity.ORANGE || 0 }}</div>
+          <div class="stat-label">警告预警</div>
+        </div>
+      </div>
+      <div class="stat-card yellow">
+        <div class="stat-icon">🟡</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stats.by_severity.YELLOW || 0 }}</div>
+          <div class="stat-label">提示预警</div>
+        </div>
+      </div>
+      <div class="stat-card financial">
+        <div class="stat-icon">💰</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stats.financial_risks || 0 }}</div>
+          <div class="stat-label">财务风险</div>
+        </div>
+      </div>
+      <div class="stat-card business">
+        <div class="stat-icon">📊</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ stats.business_alerts || 0 }}</div>
+          <div class="stat-label">业务预警</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 财务风险专项 -->
+    <div class="financial-risk-section" v-if="financialRisks.length > 0">
+      <div class="section-header">
+        <h2>💰 财务风险专项</h2>
+        <div class="health-score" :class="getHealthScoreClass(healthScore)">
+          <span class="score-label">财务健康度评分：</span>
+          <span class="score-value">{{ healthScore }}</span>
+          <span class="score-status">{{ getHealthScoreStatus(healthScore) }}</span>
+        </div>
+      </div>
+      
+      <div class="risk-indicators">
+        <div class="indicator" v-if="lowCurrentRatio">
+          <span class="indicator-icon">⚠️</span>
+          <span class="indicator-text">流动比率：{{ lowCurrentRatio }} (低于 1.0)</span>
+        </div>
+        <div class="indicator" v-if="highDebtEquity">
+          <span class="indicator-icon">⚠️</span>
+          <span class="indicator-text">负债权益比：{{ highDebtEquity }} (高于 2.0)</span>
+        </div>
+        <div class="indicator" v-if="lowROE">
+          <span class="indicator-icon">⚠️</span>
+          <span class="indicator-text">ROE: {{ lowROE }} (低于 5%)</span>
+        </div>
+        <div class="indicator" v-if="lowCashflow">
+          <span class="indicator-icon">🔴</span>
+          <span class="indicator-text">现金流：{{ lowCashflow }} (低于安全线)</span>
+        </div>
+      </div>
+      
+      <div class="section-actions">
+        <button class="action-btn primary">查看财务分析详情</button>
+        <button class="action-btn secondary">制定改善计划</button>
+      </div>
+    </div>
+
+    <!-- 预警列表 -->
+    <div class="alert-list-section">
+      <div class="section-header">
+        <h2>预警列表 (按优先级排序)</h2>
+        <div class="filters">
+          <select v-model="filterSeverity" class="filter-select">
+            <option value="">全部级别</option>
+            <option value="RED">🔴 高危</option>
+            <option value="ORANGE">🟠 警告</option>
+            <option value="YELLOW">🟡 提示</option>
+          </select>
+          <select v-model="filterType" class="filter-select">
+            <option value="">全部类型</option>
+            <option value="business">业务预警</option>
+            <option value="financial">财务风险</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="alert-list" v-loading="loading">
+        <div v-if="filteredAlerts.length === 0" class="empty-state">
+          <div class="empty-icon">✅</div>
+          <div class="empty-text">暂无预警信息</div>
+        </div>
+
+        <div 
+          v-for="(alert, index) in filteredAlerts" 
+          :key="index"
+          class="alert-item"
+          :class="alert.severity.toLowerCase()"
+        >
+          <div class="alert-header">
+            <span class="alert-severity">
+              {{ getSeverityIcon(alert.severity) }}
+              {{ getAlertTypeName(alert.alert_type) }}
+            </span>
+            <span class="alert-time">{{ formatTime(alert.created_at) }}</span>
+          </div>
+          
+          <div class="alert-description">
+            {{ alert.description }}
+          </div>
+          
+          <div class="alert-details" v-if="alert.customer_name || alert.product_name || alert.supplier_name || alert.department_name">
+            <span v-if="alert.customer_name">客户：{{ alert.customer_name }}</span>
+            <span v-if="alert.product_name">产品：{{ alert.product_name }}</span>
+            <span v-if="alert.supplier_name">供应商：{{ alert.supplier_name }}</span>
+            <span v-if="alert.department_name">部门：{{ alert.department_name }}</span>
+          </div>
+          
+          <div class="alert-metrics" v-if="getAlertMetrics(alert).length > 0">
+            <span 
+              v-for="(metric, idx) in getAlertMetrics(alert)" 
+              :key="idx"
+              class="metric-tag"
+            >
+              {{ metric }}
+            </span>
+          </div>
+          
+          <div class="alert-footer">
+            <div class="alert-recommendation">
+              <span class="recommendation-icon">💡</span>
+              {{ alert.recommendation }}
+            </div>
+            <div class="alert-actions">
+              <button class="btn-assign" @click="assignAlert(alert)">
+                分配负责人
+              </button>
+              <button class="btn-acknowledge" @click="acknowledgeAlert(alert)">
+                确认接收
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分配负责人对话框 -->
+    <div class="dialog-overlay" v-if="showAssignDialog" @click="closeAssignDialog">
+      <div class="dialog" @click.stop>
+        <div class="dialog-header">
+          <h3>分配预警负责人</h3>
+          <button class="close-btn" @click="closeAssignDialog">×</button>
+        </div>
+        <div class="dialog-body">
+          <div class="form-group">
+            <label>负责人姓名</label>
+            <input 
+              v-model="assignForm.assignee_name" 
+              type="text" 
+              class="form-input"
+              placeholder="请输入负责人姓名"
+            />
+          </div>
+          <div class="form-group">
+            <label>处理时限 (小时)</label>
+            <input 
+              v-model.number="assignForm.due_hours" 
+              type="number" 
+              class="form-input"
+              min="1"
+              max="168"
+            />
+          </div>
+          <div class="form-group">
+            <label>备注</label>
+            <textarea 
+              v-model="assignForm.notes" 
+              class="form-textarea"
+              rows="3"
+              placeholder="可选备注"
+            ></textarea>
+          </div>
+        </div>
+        <div class="dialog-footer">
+          <button class="btn-cancel" @click="closeAssignDialog">取消</button>
+          <button class="btn-confirm" @click="submitAssign" :disabled="!assignForm.assignee_name">
+            确认分配
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import axios from 'axios'
+
+// API 基础地址
+const API_BASE = 'http://localhost:8005'
+
+// 响应性数据
+const loading = ref(false)
+const alertsData = ref({})
+const stats = ref({
+  total: 0,
+  by_severity: { RED: 0, ORANGE: 0, YELLOW: 0 },
+  financial_risks: 0,
+  business_alerts: 0,
+  by_type: {},
+})
+const financialRisks = ref([])
+const healthScore = ref(null)
+const filterSeverity = ref('')
+const filterType = ref('')
+const showAssignDialog = ref(false)
+const currentAlert = ref(null)
+const assignForm = ref({
+  assignee_name: '',
+  due_hours: 24,
+  notes: '',
+})
+
+// 计算属性
+const filteredAlerts = computed(() => {
+  const allAlerts = []
+  
+  // 展平所有预警
+  Object.entries(alertsData.value).forEach(([type, alerts]) => {
+    alerts.forEach(alert => {
+      allAlerts.push({ ...alert, _type: type })
+    })
+  })
+  
+  // 按 severity 筛选
+  let filtered = allAlerts
+  if (filterSeverity.value) {
+    filtered = filtered.filter(a => a.severity === filterSeverity.value)
+  }
+  
+  // 按类型筛选
+  if (filterType.value) {
+    const financialTypes = ['cashflow_risk', 'ar_overdue_risk', 'ap_risk', 'financial_ratio_abnormal', 'budget_variance']
+    filtered = filtered.filter(a => {
+      const isFinancial = financialTypes.includes(a._type)
+      return filterType.value === 'financial' ? isFinancial : !isFinancial
+    })
+  }
+  
+  // 按 severity 排序 (RED > ORANGE > YELLOW)
+  const severityOrder = { RED: 0, ORANGE: 1, YELLOW: 2 }
+  filtered.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity])
+  
+  return filtered
+})
+
+const lowCurrentRatio = computed(() => {
+  const ratioAlert = financialRisks.value.find(r => r.alert_type === 'FINANCIAL_RATIO_ABNORMAL')
+  return ratioAlert?.current_ratio < 1.0 ? ratioAlert.current_ratio : null
+})
+
+const highDebtEquity = computed(() => {
+  const ratioAlert = financialRisks.value.find(r => r.alert_type === 'FINANCIAL_RATIO_ABNORMAL')
+  return ratioAlert?.debt_to_equity > 2.0 ? ratioAlert.debt_to_equity : null
+})
+
+const lowROE = computed(() => {
+  const ratioAlert = financialRisks.value.find(r => r.alert_type === 'FINANCIAL_RATIO_ABNORMAL')
+  return ratioAlert?.roe < 0.05 ? (ratioAlert.roe * 100).toFixed(1) + '%' : null
+})
+
+const lowCashflow = computed(() => {
+  const cashflowAlert = financialRisks.value.find(r => r.alert_type === 'CASHFLOW_RISK')
+  return cashflowAlert ? `¥${(cashflowAlert.current_balance / 10000).toFixed(0)}万` : null
+})
+
+// 方法
+const fetchAlerts = async () => {
+  loading.value = true
+  try {
+    const response = await axios.get(`${API_BASE}/api/v1/alerts`)
+    if (response.data.success) {
+      alertsData.value = response.data.data
+      stats.value = response.data.stats
+    }
+  } catch (error) {
+    console.error('获取预警失败:', error)
+    alert('获取预警信息失败，请稍后重试')
+  } finally {
+    loading.value = false
+  }
+}
+
+const fetchFinancialRisks = async () => {
+  try {
+    const response = await axios.get(`${API_BASE}/api/v1/alerts/financial`)
+    if (response.data.success) {
+      financialRisks.value = response.data.risks
+      healthScore.value = response.data.health_score
+    }
+  } catch (error) {
+    console.error('获取财务风险失败:', error)
+  }
+}
+
+const refreshAlerts = async () => {
+  await Promise.all([fetchAlerts(), fetchFinancialRisks()])
+}
+
+const getSeverityIcon = (severity) => {
+  const icons = { RED: '🔴', ORANGE: '🟠', YELLOW: '🟡' }
+  return icons[severity] || '🟡'
+}
+
+const getAlertTypeName = (type) => {
+  const typeNames = {
+    INVENTORY_LOW: '库存预警',
+    INVENTORY_ZERO: '库存为零',
+    PAYMENT_OVERDUE: '付款逾期',
+    CUSTOMER_CHURN: '客户流失',
+    DELIVERY_DELAY: '交货逾期',
+    SALES_ANOMALY: '销售异常',
+    CASHFLOW_RISK: '现金流风险',
+    AR_OVERDUE_RISK: '应收账款逾期',
+    AP_RISK: '应付账款风险',
+    FINANCIAL_RATIO_ABNORMAL: '财务比率异常',
+    BUDGET_VARIANCE: '预算偏差',
+  }
+  return typeNames[type] || type
+}
+
+const getAlertMetrics = (alert) => {
+  const metrics = []
+  if (alert.amount) metrics.push(`金额：¥${(alert.amount / 10000).toFixed(0)}万`)
+  if (alert.overdue_days) metrics.push(`逾期：${alert.overdue_days}天`)
+  if (alert.delay_days) metrics.push(`延迟：${alert.delay_days}天`)
+  if (alert.variance_percent) metrics.push(`偏差：${alert.variance_percent.toFixed(1)}%`)
+  if (alert.current_stock !== undefined) metrics.push(`库存：${alert.current_stock}`)
+  if (alert.total_overdue) metrics.push(`逾期：¥${(alert.total_overdue / 10000).toFixed(0)}万`)
+  return metrics
+}
+
+const formatTime = (time) => {
+  if (!time) return ''
+  const date = new Date(time)
+  return date.toLocaleString('zh-CN')
+}
+
+const getHealthScoreClass = (score) => {
+  if (score === null) return ''
+  if (score >= 80) return 'good'
+  if (score >= 60) return 'warning'
+  return 'danger'
+}
+
+const getHealthScoreStatus = (score) => {
+  if (score === null) return ''
+  if (score >= 80) return '(优秀)'
+  if (score >= 60) return '(需关注)'
+  return '(高风险)'
+}
+
+const assignAlert = (alert) => {
+  currentAlert.value = alert
+  showAssignDialog.value = true
+}
+
+const closeAssignDialog = () => {
+  showAssignDialog.value = false
+  currentAlert.value = null
+  assignForm.value = { assignee_name: '', due_hours: 24, notes: '' }
+}
+
+const acknowledgeAlert = async (alert) => {
+  try {
+    const response = await axios.post(
+      `${API_BASE}/api/v1/alerts/${alert.alert_type}/acknowledge`,
+      null,
+      {
+        params: {
+          alert_id: alert.product_id || alert.customer_id || alert.invoice_id || 'unknown',
+          acknowledged_by: '当前用户',
+        }
+      }
+    )
+    if (response.data.success) {
+      alert('预警已确认')
+      refreshAlerts()
+    }
+  } catch (error) {
+    console.error('确认预警失败:', error)
+    alert('确认失败，请稍后重试')
+  }
+}
+
+const submitAssign = async () => {
+  if (!currentAlert.value || !assignForm.value.assignee_name) return
+  
+  try {
+    const response = await axios.post(
+      `${API_BASE}/api/v1/alerts/${currentAlert.value.alert_type}/assign`,
+      null,
+      {
+        params: {
+          alert_id: currentAlert.value.product_id || currentAlert.value.customer_id || 'unknown',
+          assignee_id: 'user-001',
+          assignee_name: assignForm.value.assignee_name,
+          due_hours: assignForm.value.due_hours,
+        }
+      }
+    )
+    if (response.data.success) {
+      alert('预警已分配')
+      closeAssignDialog()
+      refreshAlerts()
+    }
+  } catch (error) {
+    console.error('分配预警失败:', error)
+    alert('分配失败，请稍后重试')
+  }
+}
+
+// 生命周期
+onMounted(() => {
+  refreshAlerts()
+  // 每 5 分钟自动刷新
+  setInterval(refreshAlerts, 5 * 60 * 1000)
+})
+</script>
+
+<style scoped>
+.alert-center {
+  padding: 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  min-height: 100vh;
+  font-family: 'Microsoft YaHei', sans-serif;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 20px 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.title h1 {
+  margin: 0;
+  font-size: 28px;
+  color: #1a202c;
+  font-weight: 600;
+}
+
+.icon {
+  font-size: 32px;
+}
+
+.settings-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.settings-btn:hover {
+  background: #f0f0f0;
+}
+
+.refresh-btn {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 统计卡片 */
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 20px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+}
+
+.stat-icon {
+  font-size: 36px;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: bold;
+  color: #1a202c;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #718096;
+  margin-top: 4px;
+}
+
+.stat-card.red .stat-value { color: #e53e3e; }
+.stat-card.orange .stat-value { color: #dd6b20; }
+.stat-card.yellow .stat-value { color: #d69e2e; }
+.stat-card.financial .stat-value { color: #3182ce; }
+.stat-card.business .stat-value { color: #38a169; }
+
+/* 财务风险专项 */
+.financial-risk-section {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 24px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.section-header h2 {
+  margin: 0;
+  font-size: 22px;
+  color: #1a202c;
+}
+
+.health-score {
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.health-score.good {
+  background: #c6f6d5;
+  color: #22543d;
+}
+
+.health-score.warning {
+  background: #feebc8;
+  color: #7c2d12;
+}
+
+.health-score.danger {
+  background: #fed7d7;
+  color: #742a2a;
+}
+
+.score-value {
+  font-size: 24px;
+  font-weight: bold;
+  margin: 0 8px;
+}
+
+.score-status {
+  font-size: 14px;
+  opacity: 0.8;
+}
+
+.risk-indicators {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #f7fafc;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.indicator-icon {
+  font-size: 20px;
+}
+
+.section-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.action-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.action-btn.primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.action-btn.secondary {
+  background: #edf2f7;
+  color: #2d3748;
+}
+
+.action-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 预警列表 */
+.alert-list-section {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.filters {
+  display: flex;
+  gap: 12px;
+}
+
+.filter-select {
+  padding: 8px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+}
+
+.alert-list {
+  margin-top: 20px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #a0aec0;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+}
+
+.empty-text {
+  font-size: 18px;
+}
+
+.alert-item {
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  background: white;
+  transition: all 0.2s;
+}
+
+.alert-item:hover {
+  transform: translateX(4px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.alert-item.red {
+  border-left-color: #e53e3e;
+  background: linear-gradient(90deg, #fff5f5 0%, white 100%);
+}
+
+.alert-item.orange {
+  border-left-color: #dd6b20;
+  background: linear-gradient(90deg, #fffaf0 0%, white 100%);
+}
+
+.alert-item.yellow {
+  border-left-color: #d69e2e;
+  background: linear-gradient(90deg, #fffff0 0%, white 100%);
+}
+
+.alert-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.alert-severity {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a202c;
+}
+
+.alert-time {
+  font-size: 12px;
+  color: #a0aec0;
+}
+
+.alert-description {
+  font-size: 15px;
+  color: #2d3748;
+  margin-bottom: 12px;
+  line-height: 1.6;
+}
+
+.alert-details {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+  font-size: 14px;
+  color: #4a5568;
+}
+
+.alert-metrics {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.metric-tag {
+  background: #edf2f7;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #4a5568;
+}
+
+.alert-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.alert-recommendation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #2d3748;
+  flex: 1;
+}
+
+.recommendation-icon {
+  font-size: 18px;
+}
+
+.alert-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-assign, .btn-acknowledge {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-assign {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-acknowledge {
+  background: #edf2f7;
+  color: #2d3748;
+}
+
+.btn-assign:hover, .btn-acknowledge:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 对话框 */
+.dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.dialog {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.dialog-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dialog-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #1a202c;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 28px;
+  color: #a0aec0;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.close-btn:hover {
+  background: #f0f0f0;
+}
+
+.dialog-body {
+  padding: 24px;
+}
+
+.form-group {
+  margin-bottom: 20px;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #2d3748;
+}
+
+.form-input, .form-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.2s;
+}
+
+.form-input:focus, .form-textarea:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.form-textarea {
+  resize: vertical;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 20px 24px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.btn-cancel, .btn-confirm {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-cancel {
+  background: #edf2f7;
+  color: #2d3748;
+}
+
+.btn-confirm {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.btn-confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-cancel:hover, .btn-confirm:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 加载状态 */
+[v-loading] {
+  position: relative;
+}
+
+[v-loading]::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+}
+</style>

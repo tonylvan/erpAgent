@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>GSD API 测试</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .result { background: #f5f5f5; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>GSD 智能问数 API 测试</h1>
+    
+    <div id="results"></div>
+    
+    <script>
+        const API_BASE = 'http://localhost:8005';
+        const resultsDiv = document.getElementById('results');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.textContent = message;
+            resultsDiv.appendChild(div);
+        }
+        
+        async function testAPI() {
+            log('开始测试 API 连接...');
+            
+            // 测试 1: 健康检查
+            try {
+                const r = await fetch(`${API_BASE}/health`);
+                const data = await r.json();
+                log(`✓ 健康检查：${r.status} - ${JSON.stringify(data)}`, 'success');
+            } catch (e) {
+                log(`✗ 健康检查失败：${e.message}`, 'error');
+            }
+            
+            // 测试 2: 智能问数
+            try {
+                const r = await fetch(`${API_BASE}/api/v1/smart-query-v40/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        query: '查询最近付款单',
+                        session_id: 'test-001'
+                    })
+                });
+                const data = await r.json();
+                log(`✓ 智能问数 v4.0: ${r.status}`, 'success');
+                log(`  响应：${JSON.stringify(data, null, 2)}`, 'info');
+            } catch (e) {
+                log(`✗ 智能问数失败：${e.message}`, 'error');
+            }
+            
+            log('测试完成！');
+        }
+        
+        testAPI();
+    </script>
+</body>
+</html>
