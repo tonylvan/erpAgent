@@ -4,8 +4,13 @@ Tests for Ticket Workflow API routes
 import pytest
 from fastapi.testclient import TestClient
 from app.main import app
+from app.auth.jwt import create_access_token
 
 client = TestClient(app)
+
+# Create a valid test token
+test_token = create_access_token(subject="test_user", roles=["user"])
+test_headers = {"Authorization": f"Bearer {test_token}"}
 
 
 def test_assign_ticket_success():
@@ -206,12 +211,16 @@ def test_close_ticket_success():
     # Now close the ticket
     response = client.post(
         "/api/v1/tickets/1/close",
-        json={"closed_by": "user_test", "closure_notes": "用户确认满意"}
+        json={
+            "close_reason": "问题已解决",
+            "satisfaction": "satisfied"
+        }
     )
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "CLOSED"
-    assert data["closed_by"] == "user_test"
+    assert data["close_reason"] == "问题已解决"
+    assert data["satisfaction"] == "satisfied"
     assert "closed_at" in data
 
 
@@ -219,7 +228,10 @@ def test_close_ticket_not_found():
     """Test closure of non-existent ticket (404)"""
     response = client.post(
         "/api/v1/tickets/99999/close",
-        json={"closed_by": "user_test", "closure_notes": "测试"}
+        json={
+            "close_reason": "问题已解决",
+            "satisfaction": "satisfied"
+        }
     )
     assert response.status_code == 404
     data = response.json()
@@ -231,7 +243,10 @@ def test_close_ticket_invalid_status():
     # Try to close a ticket that is still OPEN
     response = client.post(
         "/api/v1/tickets/2/close",
-        json={"closed_by": "user_test", "closure_notes": "测试"}
+        json={
+            "close_reason": "问题已解决",
+            "satisfaction": "satisfied"
+        }
     )
     # Should return 400 because ticket is not RESOLVED
     assert response.status_code == 400
@@ -242,33 +257,52 @@ def test_close_ticket_invalid_status():
 def test_reopen_ticket_success():
     """Test successful ticket reopening"""
     # First, create a ticket and close it
+    # Create ticket
+    create_response = client.post(
+        "/api/v1/tickets",
+        json={
+            "title": "Test ticket for reopen",
+            "description": "Testing reopen functionality",
+            "priority": "LOW",
+            "category": "IT",
+            "created_by": "test_user"
+        },
+        headers=test_headers
+    )
+    assert create_response.status_code == 200
+    ticket_id = create_response.json()["id"]
+    
     # Assign the ticket
     assign_response = client.post(
-        "/api/v1/tickets/1/assign",
-        json={"assigned_to": "user_test", "reason": "测试"}
+        f"/api/v1/tickets/{ticket_id}/assign",
+        json={"assigned_to": "test_user", "reason": "测试"},
+        headers=test_headers
     )
     assert assign_response.status_code == 200
     
     # Resolve the ticket
     resolve_response = client.post(
-        "/api/v1/tickets/1/resolve",
-        json={"solution": "已解决", "resolution_type": "fixed"}
+        f"/api/v1/tickets/{ticket_id}/resolve",
+        json={"solution": "已解决", "resolution_type": "fixed"},
+        headers=test_headers
     )
     assert resolve_response.status_code == 200
     assert resolve_response.json()["status"] == "RESOLVED"
     
     # Close the ticket
     close_response = client.post(
-        "/api/v1/tickets/1/close",
-        json={"closed_by": "user_test", "closure_notes": "用户确认"}
+        f"/api/v1/tickets/{ticket_id}/close",
+        json={"closed_by": "test_user", "closure_notes": "用户确认"},
+        headers=test_headers
     )
     assert close_response.status_code == 200
     assert close_response.json()["status"] == "CLOSED"
     
     # Now reopen the ticket
     response = client.post(
-        "/api/v1/tickets/1/reopen",
-        json={"reopen_reason": "问题复发"}
+        f"/api/v1/tickets/{ticket_id}/reopen",
+        json={"reopen_reason": "问题复发"},
+        headers=test_headers
     )
     assert response.status_code == 200
     data = response.json()
@@ -281,7 +315,8 @@ def test_reopen_ticket_not_found():
     """Test reopening of non-existent ticket (404)"""
     response = client.post(
         "/api/v1/tickets/99999/reopen",
-        json={"reopen_reason": "问题复发"}
+        json={"reopen_reason": "问题复发"},
+        headers=test_headers
     )
     assert response.status_code == 404
     data = response.json()
@@ -290,10 +325,26 @@ def test_reopen_ticket_not_found():
 
 def test_reopen_ticket_invalid_status():
     """Test reopening of ticket not in CLOSED state"""
+    # Create a new ticket (status OPEN)
+    create_response = client.post(
+        "/api/v1/tickets",
+        json={
+            "title": "Test ticket for reopen status",
+            "description": "Testing reopen status validation",
+            "priority": "LOW",
+            "category": "IT",
+            "created_by": "test_user"
+        },
+        headers=test_headers
+    )
+    assert create_response.status_code == 200
+    ticket_id = create_response.json()["id"]
+    
     # Try to reopen a ticket that is still OPEN
     response = client.post(
-        "/api/v1/tickets/2/reopen",
-        json={"reopen_reason": "测试"}
+        f"/api/v1/tickets/{ticket_id}/reopen",
+        json={"reopen_reason": "测试"},
+        headers=test_headers
     )
     # Should return 400 because ticket is not CLOSED
     assert response.status_code == 400

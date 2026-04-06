@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.models.ticket import Ticket
-from app.auth.jwt import get_current_user
+from app.auth.jwt import get_current_user, UserInfo
 
 router = APIRouter(tags=["Ticket Workflow"])
 
@@ -69,7 +69,7 @@ async def assign_ticket(
     ticket_id: int,
     data: AssignRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: UserInfo = Depends(get_current_user)
 ):
     """
     Assign a ticket to a user.
@@ -124,7 +124,7 @@ async def transfer_ticket(
     ticket_id: int,
     data: TransferRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: UserInfo = Depends(get_current_user)
 ):
     """
     Transfer a ticket to another agent or department.
@@ -208,7 +208,7 @@ async def resolve_ticket(
     ticket_id: int,
     data: ResolveRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: UserInfo = Depends(get_current_user)
 ):
     """
     Mark a ticket as resolved.
@@ -272,7 +272,7 @@ async def close_ticket(
     ticket_id: int,
     data: CloseRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: UserInfo = Depends(get_current_user)
 ):
     """
     Close a ticket permanently (creator confirmation).
@@ -336,7 +336,7 @@ async def reopen_ticket(
     ticket_id: int,
     data: ReopenRequest,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_user)
+    current_user: UserInfo = Depends(get_current_user)
 ):
     """
     Reopen a closed ticket.
@@ -370,14 +370,14 @@ async def reopen_ticket(
     ticket.status = "OPEN"
     ticket.reopen_reason = data.reopen_reason
     ticket.reopened_at = datetime.now()
-    ticket.reopened_by = current_user.get("username", "unknown")
+    ticket.reopened_by = current_user.username
     ticket.updated_at = datetime.now()
     
     # 4. Record operation log
     operation_log = TicketOperationLog(
         ticket_id=ticket_id,
         operation="REOPEN",
-        performed_by=current_user.get("username", "unknown"),
+        performed_by=current_user.username,
         timestamp=datetime.now(),
         details={
             "reopen_reason": data.reopen_reason,
