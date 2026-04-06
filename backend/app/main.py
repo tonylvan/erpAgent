@@ -29,6 +29,7 @@ from app.api.v1.query_history import router as query_history_router
 from app.api.v1.alerts_v3 import router as alerts_v3_router
 from app.api.v1.tickets import router as tickets_router
 from app.api.v1.ticket_workflow import router as ticket_workflow_router
+from app.api.v1.ticket_comments import router as ticket_comments_router
 from app.websocket.server import manager
 
 app = FastAPI(
@@ -122,6 +123,7 @@ app.include_router(query_history_router, prefix="/api/v1")
 app.include_router(alerts_v3_router, prefix="/api/v1/alerts")  # Alert Center v2.0 API
 app.include_router(tickets_router, prefix="/api/v1/tickets")  # Ticket Center API
 app.include_router(ticket_workflow_router, prefix="/api/v1/tickets")  # Ticket Workflow API
+app.include_router(ticket_comments_router, prefix="/api/v1")  # Ticket Comments API (prefix already set in router)
 
 # Test route to verify server is running with latest code
 @app.get("/api/v1/test")
