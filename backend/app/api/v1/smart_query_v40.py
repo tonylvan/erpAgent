@@ -2,9 +2,11 @@
 """
 GSD 智能问数 v4.0 - 智能路由引擎
 
-根据查询类型自动路由：
-- ERP 查询 → Neo4j 知识图谱（本地调用）
-- 通用问题 → DashScope LLM（直接调用）
+根据查询类型自动路由:
+- ERP 查询 → Neo4j 知识图谱 (本地调用)
+- 通用问题 → DashScope LLM (直接调用)
+
+v4.0 增强：集成 NL2Cypher 引擎，支持自然语言转 Cypher 查询
 """
 
 from fastapi import APIRouter, HTTPException
@@ -14,12 +16,16 @@ import json
 import os
 from dotenv import load_dotenv
 
+# Import NL2Cypher engine
+from app.services.nl2cypher import NL2CypherEngine
+from app.nlu.intent_parser import NLUEngine
+
 router = APIRouter()
 
-# 加载环境变量
+# Load environment variables
 load_dotenv()
 
-# DashScope 配置
+# DashScope configuration
 DASHSCOPE_API_KEY = os.getenv("DASHSCOPE_API_KEY", "")
 try:
     import dashscope
@@ -28,7 +34,16 @@ try:
 except ImportError:
     DASHSCOPE_AVAILABLE = False
 
-# ERP 关键词识别
+# Neo4j configuration
+NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "password")
+
+# Initialize NL2Cypher engine
+nl2cypher_engine = NL2CypherEngine()
+nlu_engine = NLUEngine()
+
+# ERP keywords
 ERP_KEYWORDS = [
     '付款', '采购', '订单', '应付', '客户',
     '销售', '库存', '商品', '供应商', '仓库',
@@ -54,12 +69,12 @@ class SmartQueryResponse(BaseModel):
 
 
 def is_erp_query(query: str) -> bool:
-    """判断是否为 ERP 相关查询"""
+    """Check if query is ERP related"""
     return any(kw in query for kw in ERP_KEYWORDS)
 
 
 def call_dashscope_llm(query: str) -> str:
-    """调用 DashScope LLM 回答通用问题"""
+    """Call DashScope LLM for general questions"""
     if not DASHSCOPE_AVAILABLE:
         return "DashScope SDK 未安装，无法回答通用问题。"
     
@@ -80,35 +95,118 @@ def call_dashscope_llm(query: str) -> str:
         return f"LLM 调用异常：{str(e)}"
 
 
+def execute_neo4j_cypher(cypher: str) -> dict:
+    """
+    Execute Neo4j Cypher query
+    
+    Args:
+        cypher: Cypher query statement
+        
+    Returns:
+        dict: Query results
+    """
+    try:
+        from neo4j import GraphDatabase
+        
+        driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+        
+        with driver.session() as session:
+            result = session.run(cypher)
+            records = [record.data() for record in result]
+            
+            if not records:
+                return {
+                    "answer": "未找到相关数据",
+                    "data_type": "text",
+                    "data": []
+                }
+            
+            # Construct response based on query type
+            if len(records) == 1 and len(records[0]) == 1:
+                # Single value return
+                value = list(records[0].values())[0]
+                return {
+                    "answer": f"查询结果：{value}",
+                    "data_type": "stats",
+                    "data": records
+                }
+            else:
+                # Multiple records return
+                return {
+                    "answer": f"查询到 {len(records)} 条记录",
+                    "data_type": "table",
+                    "data": records
+                }
+                
+    except Exception as e:
+        return {
+            "answer": f"Neo4j 查询失败：{str(e)}",
+            "data_type": "error",
+            "data": None
+        }
+
+
 def call_neo4j_query(query: str) -> dict:
     """
-    调用 Neo4j 查询 ERP 数据
-    这里简化实现，实际应调用 smart_query_v2 引擎
+    Call Neo4j to query ERP data
+    Use NL2Cypher engine to convert natural language to Cypher query
+    
+    Args:
+        query: Natural language query
+        
+    Returns:
+        dict: Query results
     """
-    # TODO: 集成真实的 Neo4j 查询引擎
-    return {
-        "answer": f"[Neo4j] 查询：{query}\n\n（此处应返回真实 ERP 数据，待集成 v2.7 引擎）",
-        "data_type": "text",
-        "data": None
-    }
+    try:
+        # Step 1: NLU intent recognition
+        intent = nlu_engine.parse(query)
+        
+        # Step 2: Generate Cypher query
+        cypher = nl2cypher_engine.generate(intent)
+        
+        # Step 3: Validate and sanitize
+        if not nl2cypher_engine.validate(cypher):
+            return {
+                "answer": "查询语句未通过安全验证",
+                "data_type": "error",
+                "data": None
+            }
+        
+        cypher = nl2cypher_engine.sanitize(cypher)
+        
+        # Step 4: Execute query
+        result = execute_neo4j_cypher(cypher)
+        
+        # Add Cypher query info (for debugging)
+        result["cypher"] = cypher
+        result["intent"] = intent.intent_type.value
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "answer": f"Neo4j 查询异常：{str(e)}",
+            "data_type": "error",
+            "data": None
+        }
 
 
 @router.post("/query", response_model=SmartQueryResponse)
 async def smart_query_v40(request: SmartQueryRequest):
     """
-    v4.0 - 智能路由引擎
+    v4.0 - Smart routing engine
     
-    根据查询类型自动路由：
-    - ERP 查询 → Neo4j 知识图谱
-    - 通用问题 → DashScope LLM
+    Route based on query type:
+    - ERP query → Neo4j knowledge graph
+    - General question → DashScope LLM
     """
     
-    # 路由决策
+    # Routing decision
     route = "neo4j" if is_erp_query(request.query) else "llm"
     
     try:
         if route == "neo4j":
-            # Neo4j 查询
+            # Neo4j query
             result = call_neo4j_query(request.query)
             return SmartQueryResponse(
                 success=True,
@@ -123,7 +221,7 @@ async def smart_query_v40(request: SmartQueryRequest):
                 ]
             )
         else:
-            # LLM 回答
+            # LLM answer
             answer = call_dashscope_llm(request.query)
             return SmartQueryResponse(
                 success=True,
@@ -150,11 +248,22 @@ async def smart_query_v40(request: SmartQueryRequest):
 
 @router.get("/health")
 async def health_check():
-    """健康检查"""
+    """Health check"""
     return {
         "status": "ok",
         "version": "v4.0",
         "dashscope_available": DASHSCOPE_AVAILABLE,
         "erp_keywords_count": len(ERP_KEYWORDS),
-        "description": "GSD Smart Query v4.0 - 智能路由引擎（Neo4j + DashScope LLM）"
+        "nl2cypher_engine": "initialized",
+        "nlu_engine": "initialized",
+        "supported_intent_types": [
+            "QUERY_SALES",
+            "QUERY_RANKING",
+            "QUERY_TREND",
+            "QUERY_STATISTICS",
+            "QUERY_INVENTORY",
+            "QUERY_PURCHASE",
+            "QUERY_CUSTOMER"
+        ],
+        "description": "GSD Smart Query v4.0 - 智能路由引擎 (Neo4j + DashScope LLM + NL2Cypher)"
     }
