@@ -7,7 +7,7 @@ from app.auth.jwt import UserInfo, get_current_user
 from app.services.neo4j_ontology import fetch_ontology_graph
 from app.services.neo4j_read import run_read_cypher
 
-router = APIRouter(prefix="/graph", tags=["图查询"])
+router = APIRouter(tags=["图查询"])
 
 
 @router.get("/ontology")
