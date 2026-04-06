@@ -27,6 +27,8 @@ from app.api.v1.smart_query_v40 import router as smart_query_v40_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.query_history import router as query_history_router
 from app.api.v1.alerts_v3 import router as alerts_v3_router
+from app.api.v1.tickets import router as tickets_router
+from app.api.v1.ticket_workflow import router as ticket_workflow_router
 from app.websocket.server import manager
 
 app = FastAPI(
@@ -70,7 +72,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS  - ?localhost 
+# CORS 配置 - 支持 localhost 和 127.0.0.1
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -81,6 +83,11 @@ app.add_middleware(
         "http://localhost:5177",
         "http://localhost:5178",
         "http://localhost:5179",
+        "http://localhost:5180",
+        "http://localhost:5181",
+        "http://localhost:5182",
+        "http://localhost:5183",
+        "http://localhost:5184",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
         "http://127.0.0.1:5175",
@@ -88,6 +95,11 @@ app.add_middleware(
         "http://127.0.0.1:5177",
         "http://127.0.0.1:5178",
         "http://127.0.0.1:5179",
+        "http://127.0.0.1:5180",
+        "http://127.0.0.1:5181",
+        "http://127.0.0.1:5182",
+        "http://127.0.0.1:5183",
+        "http://127.0.0.1:5184",
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -108,6 +120,8 @@ app.include_router(smart_query_v40_router, prefix="/api/v1/smart-query-v40")  # 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(query_history_router, prefix="/api/v1")
 app.include_router(alerts_v3_router, prefix="/api/v1/alerts")  # Alert Center v2.0 API
+app.include_router(tickets_router, prefix="/api/v1/tickets")  # Ticket Center API
+app.include_router(ticket_workflow_router, prefix="/api/v1/tickets")  # Ticket Workflow API
 
 # Test route to verify server is running with latest code
 @app.get("/api/v1/test")
