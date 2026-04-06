@@ -131,7 +131,7 @@ class TestFindEntityPath:
     def test_find_path_same_entity(self):
         """Test path finding when from_id equals to_id"""
         headers = get_auth_headers()
-        response = client.get("/api/v1/graph/entity/1/path/to/1", headers=headers)
+        response = client.get("/api/v1/entity/1/path/to/1", headers=headers)
         assert response.status_code == 200
         data = response.json()
         assert "success" in data
