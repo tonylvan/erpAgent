@@ -9,31 +9,91 @@ This module provides workflow operations for tickets including:
 - Close: Close ticket permanently
 - Reopen: Reopen a closed ticket
 """
-from fastapi import APIRouter, HTTPException
-from typing import Any, Dict
+from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel
+from typing import Optional, Dict, Any
+from datetime import datetime
+from sqlalchemy.orm import Session
+
+from app.db.database import get_db
+from app.models.ticket import Ticket
+from app.auth.jwt import get_current_user
 
 router = APIRouter(tags=["Ticket Workflow"])
 
 
+class AssignRequest(BaseModel):
+    """Request model for ticket assignment"""
+    assigned_to: str
+    reason: Optional[str] = None
+
+
+class TicketOperationLog(BaseModel):
+    """Model for ticket operation log (in-memory for now)"""
+    ticket_id: int
+    operation: str
+    performed_by: str
+    timestamp: datetime
+    details: Dict[str, Any]
+
+
+# In-memory operation log storage (TODO: Replace with database model)
+operation_logs: list[TicketOperationLog] = []
+
+
 @router.post("/{ticket_id}/assign")
-def assign_ticket(ticket_id: int, assign_data: Dict[str, Any]) -> Dict[str, Any]:
+async def assign_ticket(
+    ticket_id: int,
+    data: AssignRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     """
     Assign a ticket to a user.
     
     Args:
         ticket_id: The ID of the ticket to assign
-        assign_data: Dictionary containing 'assigned_to' user ID
+        data: AssignRequest containing assigned_to user ID and optional reason
+        db: Database session
+        current_user: Current authenticated user
         
     Returns:
-        Test response confirming assignment
+        Updated ticket object
+        
+    Raises:
+        HTTPException: 404 if ticket not found
     """
-    # TODO: Implement actual assignment logic
-    return {
-        "status": "success",
-        "message": f"Ticket {ticket_id} assignment endpoint ready",
-        "ticket_id": ticket_id,
-        "assigned_to": assign_data.get("assigned_to"),
-    }
+    # 1. Find ticket (404 if not found)
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
+    
+    # 2. Update assigned_to and status (IN_PROGRESS)
+    old_assigned_to = ticket.assigned_to
+    ticket.assigned_to = data.assigned_to
+    ticket.status = "IN_PROGRESS"
+    ticket.updated_at = datetime.now()
+    
+    # 3. Record operation log
+    operation_log = TicketOperationLog(
+        ticket_id=ticket_id,
+        operation="ASSIGN",
+        performed_by=current_user.get("username", "unknown"),
+        timestamp=datetime.now(),
+        details={
+            "from": old_assigned_to,
+            "to": data.assigned_to,
+            "reason": data.reason,
+        }
+    )
+    operation_logs.append(operation_log)
+    
+    # Commit changes
+    db.commit()
+    db.refresh(ticket)
+    
+    # 4. Return updated ticket
+    return ticket.to_dict()
 
 
 @router.post("/{ticket_id}/transfer")
