@@ -220,6 +220,9 @@ class NL2CypherEngine:
             cypher_parts.append("MATCH (s:Sale)")
             cypher_parts.append("RETURN count(s) as total, sum(s.amount) as total_amount")
         
+        # Always add LIMIT for safety
+        cypher_parts.append(f"LIMIT {intent.limit}")
+        
         return "\n".join(cypher_parts)
     
     def _generate_inventory_query(self, intent: QueryIntent) -> str:
