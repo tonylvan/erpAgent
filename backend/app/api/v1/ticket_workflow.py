@@ -34,10 +34,21 @@ class ResolveRequest(BaseModel):
     resolution_type: Optional[str] = None
 
 
+class CloseRequest(BaseModel):
+    """Request model for ticket closure"""
+    close_reason: str
+    satisfaction: Optional[str] = "satisfied"  # satisfied/unsatisfied
+
+
 class TransferRequest(BaseModel):
     """Request model for ticket transfer"""
     transfer_to: str
     reason: Optional[str] = None
+
+
+class ReopenRequest(BaseModel):
+    """Request model for ticket reopening"""
+    reopen_reason: str
 
 
 class TicketOperationLog(BaseModel):
@@ -257,42 +268,126 @@ async def resolve_ticket(
 
 
 @router.post("/{ticket_id}/close")
-def close_ticket(ticket_id: int, close_data: Dict[str, Any]) -> Dict[str, Any]:
+async def close_ticket(
+    ticket_id: int,
+    data: CloseRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
-    Close a ticket permanently.
+    Close a ticket permanently (creator confirmation).
     
     Args:
         ticket_id: The ID of the ticket to close
-        close_data: Dictionary containing 'closed_by' user ID
+        data: CloseRequest containing close_reason and optional satisfaction
+        db: Database session
+        current_user: Current authenticated user
         
     Returns:
-        Test response confirming closure
+        Updated ticket object
+        
+    Raises:
+        HTTPException: 404 if ticket not found
+        HTTPException: 400 if ticket status is not RESOLVED
     """
-    # TODO: Implement actual closure logic
-    return {
-        "status": "success",
-        "message": f"Ticket {ticket_id} closure endpoint ready",
-        "ticket_id": ticket_id,
-        "closed_by": close_data.get("closed_by"),
-    }
+    # 1. Find ticket (404 if not found)
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
+    
+    # 2. Verify ticket status is RESOLVED
+    if ticket.status != "RESOLVED":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ticket {ticket_id} cannot be closed. Current status: {ticket.status}. Ticket must be RESOLVED to close."
+        )
+    
+    # 3. Update status to CLOSED and record close_reason and satisfaction
+    ticket.status = "CLOSED"
+    ticket.close_reason = data.close_reason
+    ticket.satisfaction = data.satisfaction
+    ticket.closed_at = datetime.now()
+    ticket.closed_by = current_user.get("username", "unknown")
+    ticket.updated_at = datetime.now()
+    
+    # 4. Record operation log
+    operation_log = TicketOperationLog(
+        ticket_id=ticket_id,
+        operation="CLOSE",
+        performed_by=current_user.get("username", "unknown"),
+        timestamp=datetime.now(),
+        details={
+            "close_reason": data.close_reason,
+            "satisfaction": data.satisfaction,
+        }
+    )
+    operation_logs.append(operation_log)
+    
+    # Commit changes
+    db.commit()
+    db.refresh(ticket)
+    
+    # 5. Return updated ticket
+    return ticket.to_dict()
 
 
 @router.post("/{ticket_id}/reopen")
-def reopen_ticket(ticket_id: int, reopen_data: Dict[str, Any]) -> Dict[str, Any]:
+async def reopen_ticket(
+    ticket_id: int,
+    data: ReopenRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     """
     Reopen a closed ticket.
     
     Args:
         ticket_id: The ID of the ticket to reopen
-        reopen_data: Dictionary containing 'reason' for reopening
+        data: ReopenRequest containing reopen_reason
+        db: Database session
+        current_user: Current authenticated user
         
     Returns:
-        Test response confirming reopening
+        Updated ticket object
+        
+    Raises:
+        HTTPException: 404 if ticket not found
+        HTTPException: 400 if ticket status is not CLOSED
     """
-    # TODO: Implement actual reopening logic
-    return {
-        "status": "success",
-        "message": f"Ticket {ticket_id} reopen endpoint ready",
-        "ticket_id": ticket_id,
-        "reason": reopen_data.get("reason"),
-    }
+    # 1. Find ticket (404 if not found)
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
+    
+    # 2. Verify ticket status is CLOSED
+    if ticket.status != "CLOSED":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ticket {ticket_id} cannot be reopened. Current status: {ticket.status}. Ticket must be CLOSED to reopen."
+        )
+    
+    # 3. Update status to OPEN and record reopen reason
+    ticket.status = "OPEN"
+    ticket.reopen_reason = data.reopen_reason
+    ticket.reopened_at = datetime.now()
+    ticket.reopened_by = current_user.get("username", "unknown")
+    ticket.updated_at = datetime.now()
+    
+    # 4. Record operation log
+    operation_log = TicketOperationLog(
+        ticket_id=ticket_id,
+        operation="REOPEN",
+        performed_by=current_user.get("username", "unknown"),
+        timestamp=datetime.now(),
+        details={
+            "reopen_reason": data.reopen_reason,
+        }
+    )
+    operation_logs.append(operation_log)
+    
+    # Commit changes
+    db.commit()
+    db.refresh(ticket)
+    
+    # 5. Return updated ticket
+    return ticket.to_dict()

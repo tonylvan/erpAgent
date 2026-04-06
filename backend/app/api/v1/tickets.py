@@ -231,6 +231,13 @@ def close_ticket(ticket_id: int, close_data: dict, db: Session = Depends(get_db)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
+    # Verify ticket status is RESOLVED
+    if ticket.status != "RESOLVED":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ticket {ticket_id} cannot be closed. Current status: {ticket.status}. Ticket must be RESOLVED to close."
+        )
+    
     ticket.status = "CLOSED"
     ticket.closed_at = datetime.now()
     ticket.closed_by = close_data.get("closed_by", "system")
