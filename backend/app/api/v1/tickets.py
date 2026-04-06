@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.models.ticket import Ticket
 from app.models.task import Task, TaskStatus, TaskPriority
 from app.services.ticket_workflow import TicketWorkflowService
+from app.auth.jwt import get_current_user
 
 router = APIRouter()
 
@@ -201,9 +202,18 @@ def resolve_ticket(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
+    # Verify ticket status is IN_PROGRESS
+    if ticket.status != "IN_PROGRESS":
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ticket {ticket_id} cannot be resolved. Current status: {ticket.status}. Ticket must be IN_PROGRESS to resolve."
+        )
+    
     ticket.status = "RESOLVED"
     ticket.resolved_at = datetime.now()
     ticket.resolved_by = resolve_data.get("resolved_by", "system")
+    ticket.solution = resolve_data.get("solution")
+    ticket.resolution_type = resolve_data.get("resolution_type")
     ticket.resolution_notes = resolve_data.get("resolution_notes")
     
     db.commit()

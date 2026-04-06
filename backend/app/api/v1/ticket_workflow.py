@@ -28,6 +28,18 @@ class AssignRequest(BaseModel):
     reason: Optional[str] = None
 
 
+class ResolveRequest(BaseModel):
+    """Request model for ticket resolution"""
+    solution: str
+    resolution_type: Optional[str] = None
+
+
+class TransferRequest(BaseModel):
+    """Request model for ticket transfer"""
+    transfer_to: str
+    reason: Optional[str] = None
+
+
 class TicketOperationLog(BaseModel):
     """Model for ticket operation log (in-memory for now)"""
     ticket_id: int
@@ -97,24 +109,66 @@ async def assign_ticket(
 
 
 @router.post("/{ticket_id}/transfer")
-def transfer_ticket(ticket_id: int, transfer_data: Dict[str, Any]) -> Dict[str, Any]:
+async def transfer_ticket(
+    ticket_id: int,
+    data: TransferRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     """
     Transfer a ticket to another agent or department.
     
     Args:
         ticket_id: The ID of the ticket to transfer
-        transfer_data: Dictionary containing 'target_agent' or 'target_department'
+        data: TransferRequest containing transfer_to user ID and optional reason
+        db: Database session
+        current_user: Current authenticated user
         
     Returns:
-        Test response confirming transfer
+        Updated ticket object
+        
+    Raises:
+        HTTPException: 404 if ticket not found
+        HTTPException: 400 if ticket is not assigned
     """
-    # TODO: Implement actual transfer logic
-    return {
-        "status": "success",
-        "message": f"Ticket {ticket_id} transfer endpoint ready",
-        "ticket_id": ticket_id,
-        "target": transfer_data.get("target_agent") or transfer_data.get("target_department"),
-    }
+    # 1. Find ticket (404 if not found)
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
+    
+    # 2. Verify ticket is assigned (cannot transfer unassigned ticket)
+    if not ticket.assigned_to:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ticket {ticket_id} is not assigned. Please assign it first before transferring."
+        )
+    
+    # 3. Update assigned_to (keep status as IN_PROGRESS)
+    old_assigned_to = ticket.assigned_to
+    ticket.assigned_to = data.transfer_to
+    ticket.status = "IN_PROGRESS"  # Keep status as IN_PROGRESS
+    ticket.updated_at = datetime.now()
+    
+    # 4. Record operation log
+    operation_log = TicketOperationLog(
+        ticket_id=ticket_id,
+        operation="TRANSFER",
+        performed_by=current_user.get("username", "unknown"),
+        timestamp=datetime.now(),
+        details={
+            "from": old_assigned_to,
+            "to": data.transfer_to,
+            "reason": data.reason,
+        }
+    )
+    operation_logs.append(operation_log)
+    
+    # Commit changes
+    db.commit()
+    db.refresh(ticket)
+    
+    # 5. Return updated ticket
+    return ticket.to_dict()
 
 
 @router.post("/{ticket_id}/escalate")
@@ -139,24 +193,67 @@ def escalate_ticket(ticket_id: int, escalate_data: Dict[str, Any]) -> Dict[str, 
 
 
 @router.post("/{ticket_id}/resolve")
-def resolve_ticket(ticket_id: int, resolve_data: Dict[str, Any]) -> Dict[str, Any]:
+async def resolve_ticket(
+    ticket_id: int,
+    data: ResolveRequest,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
     """
     Mark a ticket as resolved.
     
     Args:
         ticket_id: The ID of the ticket to resolve
-        resolve_data: Dictionary containing 'resolution' details
+        data: ResolveRequest containing solution and optional resolution_type
+        db: Database session
+        current_user: Current authenticated user
         
     Returns:
-        Test response confirming resolution
+        Updated ticket object
+        
+    Raises:
+        HTTPException: 404 if ticket not found
+        HTTPException: 400 if ticket status is not IN_PROGRESS
     """
-    # TODO: Implement actual resolution logic
-    return {
-        "status": "success",
-        "message": f"Ticket {ticket_id} resolution endpoint ready",
-        "ticket_id": ticket_id,
-        "resolution": resolve_data.get("resolution"),
-    }
+    # 1. Find ticket (404 if not found)
+    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    if not ticket:
+        raise HTTPException(status_code=404, detail=f"Ticket {ticket_id} not found")
+    
+    # 2. Verify ticket status is IN_PROGRESS
+    if ticket.status != "IN_PROGRESS":
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Ticket {ticket_id} cannot be resolved. Current status: {ticket.status}. Ticket must be IN_PROGRESS to resolve."
+        )
+    
+    # 3. Update status to RESOLVED and record solution
+    ticket.status = "RESOLVED"
+    ticket.solution = data.solution
+    ticket.resolution_type = data.resolution_type
+    ticket.resolved_at = datetime.now()
+    ticket.resolved_by = current_user.get("username", "unknown")
+    ticket.updated_at = datetime.now()
+    
+    # 4. Record operation log
+    operation_log = TicketOperationLog(
+        ticket_id=ticket_id,
+        operation="RESOLVE",
+        performed_by=current_user.get("username", "unknown"),
+        timestamp=datetime.now(),
+        details={
+            "solution": data.solution,
+            "resolution_type": data.resolution_type,
+        }
+    )
+    operation_logs.append(operation_log)
+    
+    # Commit changes
+    db.commit()
+    db.refresh(ticket)
+    
+    # 5. Return updated ticket
+    return ticket.to_dict()
 
 
 @router.post("/{ticket_id}/close")
