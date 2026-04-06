@@ -1,4 +1,24 @@
 import { createApp } from "vue";
 import App from "./App.vue";
+import router from "./router";
+import ElementPlus from 'element-plus';
+import * as ElementPlusIconsVue from '@element-plus/icons-vue';
+import 'element-plus/dist/index.css';
+import VueECharts from 'vue-echarts';
+import 'echarts';
 
-createApp(App).mount("#app");
+const app = createApp(App);
+
+// Register Element Plus
+app.use(ElementPlus);
+
+// Register all icons globally
+for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+  app.component(key, component);
+}
+
+// Register vue-echarts globally
+app.component('v-chart', VueECharts);
+
+app.use(router);
+app.mount("#app");

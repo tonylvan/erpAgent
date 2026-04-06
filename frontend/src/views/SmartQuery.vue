@@ -1,738 +1,692 @@
 <template>
-  <div class="smart-query-v2">
-    <!-- 顶部导航栏 -->
-    <header class="top-nav">
-      <div class="nav-left">
-        <button class="nav-btn" @click="navigateTo('alert')">
-          🚨 预警中心
-        </button>
-        <button class="nav-btn active">
-          💬 智能问数
-        </button>
-        <button class="nav-btn" @click="navigateTo('graph')">
-          🔍 返回图谱
-        </button>
-      </div>
-      <div class="nav-right">
-        <el-dropdown trigger="click">
-          <button class="user-menu">
-            <el-avatar :size="24" src="https://picsum.photos/40/40"></el-avatar>
-            <span>Admin</span>
-          </button>
-          <template #dropdown>
-            <el-dropdown-menu>
-              <el-dropdown-item>查询历史</el-dropdown-item>
-              <el-dropdown-item>收藏管理</el-dropdown-item>
-              <el-dropdown-item divided>设置</el-dropdown-item>
-            </el-dropdown-menu>
-          </template>
-        </el-dropdown>
-      </div>
-    </header>
+  <div class="smart-query-pro">
+    <!-- Global Navigation -->
+    <GlobalNav />
 
     <!-- 主内容区 -->
-    <div class="main-content">
-      <!-- 左侧聊天区 -->
-      <div class="chat-section">
-        <!-- 消息列表 -->
-        <div class="messages-container" ref="messagesContainer">
+    <div class="main-content-pro">
+      <!-- 聊天区域 -->
+      <div class="chat-section-pro">
+        <!-- 消息容器 -->
+        <div class="messages-container-pro" ref="messagesContainer">
           <!-- 欢迎状态 -->
-          <div v-if="messages.length === 0" class="welcome-state">
-            <div class="welcome-card">
-              <div class="welcome-icon">💬</div>
-              <h2>GSD 智能问数助手</h2>
-              <p class="welcome-desc">基于知识图谱的 ERP 数据智能查询</p>
-              
-              <!-- 快捷问题 -->
-              <div class="quick-questions">
-                <p class="section-title">💡 试试问我</p>
-                <div class="question-grid">
-                  <button
-                    v-for="(q, idx) in quickQuestions"
-                    :key="idx"
-                    class="question-chip"
-                    @click="sendQuickQuestion(q)"
-                  >
-                    {{ q }}
-                  </button>
+          <div v-if="messages.length === 0" class="welcome-section">
+            <div class="welcome-card-pro">
+              <div class="welcome-header">
+                <div class="welcome-icon-pro">💬</div>
+                <h2 class="welcome-title">GSD 智能问数助手</h2>
+                <p class="welcome-subtitle">基于知识图谱的 ERP 数据智能查询</p>
+              </div>
+
+              <!-- 功能特性卡片 -->
+              <div class="features-grid">
+                <div class="feature-card">
+                  <div class="feature-icon">📊</div>
+                  <h3>数据查询</h3>
+                  <p>销售/采购/库存/财务全链路数据</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon">📈</div>
+                  <h3>趋势分析</h3>
+                  <p>同比/环比/预测智能分析</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon">🔍</div>
+                  <h3>深度洞察</h3>
+                  <p>业务建议/风险预警/决策支持</p>
+                </div>
+                <div class="feature-card">
+                  <div class="feature-icon">🤖</div>
+                  <h3>AI 驱动</h3>
+                  <p>大语言模型 + 知识图谱双引擎</p>
                 </div>
               </div>
 
-              <!-- 功能特性 -->
-              <div class="features">
-                <div class="feature-item">
-                  <div class="feature-icon">📊</div>
-                  <div class="feature-text">
-                    <div class="feature-title">数据查询</div>
-                    <div class="feature-desc">销售/采购/库存/财务</div>
-                  </div>
-                </div>
-                <div class="feature-item">
-                  <div class="feature-icon">📈</div>
-                  <div class="feature-text">
-                    <div class="feature-title">趋势分析</div>
-                    <div class="feature-desc">同比/环比/预测</div>
-                  </div>
-                </div>
-                <div class="feature-item">
-                  <div class="feature-icon">🔍</div>
-                  <div class="feature-text">
-                    <div class="feature-title">深度洞察</div>
-                    <div class="feature-desc">业务建议/风险预警</div>
-                  </div>
+              <!-- 快捷问题 -->
+              <div class="quick-questions-section">
+                <p class="section-title">
+                  <el-icon><Lightning /></el-icon>
+                  快捷提问
+                </p>
+                <div class="question-chips">
+                  <el-tag
+                    v-for="(q, idx) in quickQuestions"
+                    :key="idx"
+                    class="question-chip-pro"
+                    effect="plain"
+                    round
+                    @click="sendQuickQuestion(q)"
+                  >
+                    {{ q }}
+                  </el-tag>
                 </div>
               </div>
             </div>
           </div>
 
           <!-- 消息列表 -->
-          <div v-else class="message-list">
-            <div
-              v-for="(msg, idx) in messages"
-              :key="idx"
-              class="message-wrapper"
-              :class="[msg.role, { 'with-feedback': msg.role === 'assistant' }]"
-            >
-              <div class="message-bubble">
-                <div class="message-header">
-                  <span class="message-avatar">
-                    {{ msg.role === 'user' ? '👤' : '🤖' }}
-                  </span>
-                  <span class="message-name">
-                    {{ msg.role === 'user' ? '你' : 'GSD 助手' }}
-                  </span>
-                  <span class="message-time">{{ msg.time }}</span>
+          <div v-else class="messages-list-pro">
+            <transition-group name="message-fade">
+              <div
+                v-for="(msg, idx) in messages"
+                :key="idx"
+                class="message-item-pro"
+                :class="[msg.role]"
+              >
+                <div class="message-avatar-pro">
+                  <el-avatar :icon="msg.role === 'user' ? 'User' : 'Cpu'" :size="40" />
                 </div>
-                <div class="message-body">
-                  <!-- 文本内容 -->
-                  <div v-if="msg.type === 'text'" class="text-content" v-html="formatText(msg.content)"></div>
-                  
-                  <!-- 图表内容 -->
-                  <div v-else-if="msg.type === 'chart'" class="chart-content">
-                    <div :id="'chart-' + idx" class="echart-container"></div>
+                <div class="message-content-pro">
+                  <div class="message-meta">
+                    <span class="message-name">
+                      {{ msg.role === 'user' ? '你' : 'AI 助手' }}
+                    </span>
+                    <span class="message-time">{{ formatTime(msg.timestamp) }}</span>
                   </div>
-                  
-                  <!-- 表格内容 -->
-                  <div v-else-if="msg.type === 'table'" class="table-content">
-                    <el-table :data="msg.data?.records || []" style="width: 100%" size="small">
-                      <el-table-column
-                        v-for="col in msg.data?.columns || []"
-                        :key="col"
-                        :prop="col"
-                        :label="col"
-                      />
-                    </el-table>
-                  </div>
-                  
-                  <!-- 统计卡片 -->
-                  <div v-else-if="msg.type === 'stats'" class="stats-content">
-                    <el-row :gutter="12">
-                      <el-col :span="6" v-for="(stat, i) in msg.data?.stats || []" :key="i">
-                        <el-card shadow="hover" class="stat-card">
-                          <div class="stat-label">{{ stat.label }}</div>
-                          <div class="stat-value">{{ stat.value }}</div>
-                          <div v-if="stat.trend" :class="['stat-trend', stat.trend > 0 ? 'up' : 'down']">
-                            {{ stat.trend > 0 ? '↑' : '↓' }} {{ Math.abs(stat.trend) }}%
-                          </div>
-                        </el-card>
-                      </el-col>
-                    </el-row>
-                  </div>
-                </div>
-                
-                <!-- 反馈按钮 -->
-                <div v-if="msg.role === 'assistant' && !msg.feedback" class="feedback-actions">
-                  <el-button size="small" text @click="addFeedback(idx, 'like')">
-                    👍 有用
-                  </el-button>
-                  <el-button size="small" text @click="addFeedback(idx, 'dislike')">
-                    👎 改进
-                  </el-button>
-                </div>
-                
-                <!-- 追问建议 -->
-                <div v-if="msg.suggested_questions?.length" class="suggested-questions">
-                  <p class="suggested-title">💡 你可能还想问</p>
-                  <div class="suggested-chips">
-                    <button
-                      v-for="q in msg.suggested_questions"
-                      :key="q"
-                      class="suggested-chip"
-                      @click="sendQuickQuestion(q)"
-                    >
-                      {{ q }}
-                    </button>
+                  <div class="message-bubble-pro">
+                    <div class="message-text" v-html="renderMarkdown(msg.content)"></div>
+                    
+                    <!-- 数据可视化 -->
+                    <div v-if="msg.data" class="message-data">
+                      <div v-if="msg.data.chart" class="chart-container">
+                        <v-chart :option="msg.data.chart" autoresize />
+                      </div>
+                      <el-table v-if="msg.data.table" :data="msg.data.table" stripe size="small">
+                        <el-table-column 
+                          v-for="col in msg.data.table[0] ? Object.keys(msg.data.table[0]) : []" 
+                          :key="col"
+                          :prop="col"
+                          :label="col"
+                        />
+                      </el-table>
+                    </div>
+
+                    <!-- 追问建议 -->
+                    <div v-if="msg.suggestedQuestions && msg.suggestedQuestions.length > 0" class="suggested-section">
+                      <p class="suggested-title">
+                        <el-icon><QuestionFilled /></el-icon>
+                        你可能还想问
+                      </p>
+                      <div class="suggested-chips">
+                        <el-tag
+                          v-for="(sq, sidx) in msg.suggestedQuestions"
+                          :key="sidx"
+                          class="suggested-chip-pro"
+                          effect="plain"
+                          round
+                          size="small"
+                          @click="sendQuickQuestion(sq)"
+                        >
+                          {{ sq }}
+                        </el-tag>
+                      </div>
+                    </div>
+
+                    <!-- 反馈按钮 -->
+                    <div v-if="msg.role === 'assistant'" class="feedback-actions">
+                      <el-button size="small" text :icon="Check" @click="handleFeedback(msg.id, 'up')" />
+                      <el-button size="small" text :icon="Close" @click="handleFeedback(msg.id, 'down')" />
+                      <el-button size="small" text :icon="CopyDocument" @click="copyMessage(msg.content)" />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
+            </transition-group>
 
-          <!-- 加载状态 -->
-          <div v-if="isLoading" class="loading-state">
-            <div class="typing-indicator">
-              <span></span><span></span><span></span>
+            <!-- 加载状态 -->
+            <div v-if="loading" class="loading-indicator">
+              <div class="typing-bubble">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <span class="loading-text">AI 正在思考中...</span>
             </div>
-            <span class="loading-text">GSD 正在思考...</span>
           </div>
         </div>
 
         <!-- 输入区域 -->
-        <div class="input-section">
-          <div class="input-wrapper">
+        <div class="input-section-pro">
+          <div class="input-wrapper-pro">
             <el-input
-              v-model="inputMessage"
+              v-model="queryInput"
               type="textarea"
-              :rows="2"
-              placeholder="输入你的问题，例如：查询最近 10 笔付款单..."
-              @keydown.enter.exact="handleEnter"
-              :disabled="isLoading"
-              resize="none"
-              class="query-input"
+              :rows="3"
+              placeholder="请输入你的问题，例如：本周销售情况如何？支持自然语言提问..."
+              :autosize="{ minRows: 2, maxRows: 6 }"
+              @keydown.ctrl.enter="sendMessage"
             />
-            <el-button
-              type="primary"
-              size="large"
-              :loading="isLoading"
-              @click="sendMessage"
-              class="send-btn"
-              :icon="isLoading ? 'Loading' : 'Promotion'"
-            >
-              {{ isLoading ? '思考中...' : '发送' }}
-            </el-button>
-          </div>
-          <div class="input-hint">
-            <span>💡 按 Enter 发送，Shift+Enter 换行</span>
-            <span>📊 支持自然语言查询 ERP 数据</span>
+            <div class="input-actions">
+              <div class="input-tips">
+                <el-icon><InfoFilled /></el-icon>
+                <span>按 Ctrl+Enter 快速发送</span>
+              </div>
+              <el-button 
+                type="primary" 
+                :icon="Promotion" 
+                :loading="loading"
+                @click="sendMessage"
+                round
+                size="large"
+              >
+                发送
+              </el-button>
+            </div>
           </div>
         </div>
       </div>
-
-      <!-- 右侧边栏 -->
-      <aside class="sidebar-section">
-        <!-- 查询历史 -->
-        <el-card class="sidebar-card" shadow="never">
-          <template #header>
-            <div class="card-header">
-              <span>🕐 查询历史</span>
-              <el-button text size="small" @click="clearHistory">
-                清空
-              </el-button>
-            </div>
-          </template>
-          <div class="history-list">
-            <div
-              v-for="(item, idx) in queryHistory"
-              :key="idx"
-              class="history-item"
-              @click="loadHistory(item)"
-            >
-              <div class="history-icon">💬</div>
-              <div class="history-content">
-                <div class="history-query">{{ item.query }}</div>
-                <div class="history-time">{{ item.time }}</div>
-              </div>
-            </div>
-            <div v-if="queryHistory.length === 0" class="empty-state">
-              <p>暂无查询历史</p>
-            </div>
-          </div>
-        </el-card>
-
-        <!-- 收藏管理 -->
-        <el-card class="sidebar-card" shadow="never">
-          <template #header>
-            <div class="card-header">
-              <span>⭐ 收藏查询</span>
-              <el-button text size="small">
-                管理
-              </el-button>
-            </div>
-          </template>
-          <div class="favorites-list">
-            <div
-              v-for="(item, idx) in favorites"
-              :key="idx"
-              class="favorite-item"
-              @click="loadFavorite(item)"
-            >
-              <div class="favorite-icon">⭐</div>
-              <div class="favorite-query">{{ item.query }}</div>
-            </div>
-            <div v-if="favorites.length === 0" class="empty-state">
-              <p>暂无收藏</p>
-            </div>
-          </div>
-        </el-card>
-      </aside>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import * as echarts from 'echarts'
+import {
+  Bell,
+  ChatDotRound,
+  Connection,
+  Star,
+  Clock,
+  Lightning,
+  QuestionFilled,
+  Check,
+  Close,
+  CopyDocument,
+  Promotion,
+  InfoFilled
+} from '@element-plus/icons-vue'
+import GlobalNav from '../components/GlobalNav.vue'
+
+// ==================== State ====================
 
 const router = useRouter()
+const currentPage = ref<'alert' | 'query' | 'graph'>('query')
+const messagesContainer = ref<HTMLElement | null>(null)
 
-// 响应式数据
-const inputMessage = ref('')
-const isLoading = ref(false)
-const messages = reactive<any[]>([])
-const messagesContainer = ref(null)
-const queryHistory = reactive<any[]>([])
-const favorites = reactive<any[]>([])
+// Chat state
+const queryInput = ref('')
+const loading = ref(false)
+const messages = ref<any[]>([])
 
-// 快捷问题
-const quickQuestions = [
-  '查询最近 10 笔付款单',
-  '本月销售排行 Top 10',
-  '库存预警商品有哪些',
-  '供应商付款趋势分析',
-  '应收账款逾期客户列表',
-  '采购订单执行情况分析'
-]
+// Quick questions
+const quickQuestions = ref([
+  '本周销售情况如何？',
+  '库存预警商品有哪些？',
+  '客户回款排行 Top10',
+  '本月采购趋势分析'
+])
 
-// 导航
-function navigateTo(page: string) {
+// ==================== Methods ====================
+
+function navigateTo(page: 'alert' | 'graph') {
   if (page === 'alert') {
-    // 跳转到预警中心页面
     router.push('/')
   } else if (page === 'graph') {
-    // 跳转到知识图谱页面
     router.push('/graph')
   }
 }
 
-// 发送消息
-async function sendMessage() {
-  const content = inputMessage.value.trim()
-  if (!content || isLoading.value) return
+function formatTime(timestamp: number): string {
+  const date = new Date(timestamp)
+  const now = new Date()
+  const diff = now.getTime() - date.getTime()
+  
+  if (diff < 60000) return '刚刚'
+  if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
+  if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
+  
+  return date.toLocaleDateString('zh-CN', {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
 
-  // 添加用户消息
-  messages.push({
+function renderMarkdown(text: string): string {
+  // Simple markdown rendering
+  return text
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    .replace(/`(.*?)`/g, '<code>$1</code>')
+    .replace(/\n/g, '<br>')
+}
+
+async function sendMessage() {
+  const content = queryInput.value.trim()
+  if (!content || loading.value) return
+
+  // Add user message
+  messages.value.push({
+    id: Date.now(),
     role: 'user',
-    type: 'text',
-    content: content,
-    time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    content,
+    timestamp: Date.now()
   })
 
-  inputMessage.value = ''
-  isLoading.value = true
+  queryInput.value = ''
+  loading.value = true
+
+  // Scroll to bottom
+  await nextTick()
   scrollToBottom()
 
   try {
-    // 调用后端 API
-    const response = await fetch('/api/v1/smart-query-v40/query', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        query: content,
-        session_id: getSessionId()
-      })
-    })
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1500))
 
-    if (!response.ok) throw new Error(`API 错误：${response.status}`)
-
-    const data = await response.json()
-
-    // 添加机器人回复
-    messages.push({
+    // Add AI response (mock)
+    messages.value.push({
+      id: Date.now() + 1,
       role: 'assistant',
-      type: data.data_type || 'text',
-      content: data.answer,
-      data: data.data,
-      suggested_questions: data.suggested_questions,
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+      content: `**收到你的问题：** ${content}\n\n这是一个模拟回复。实际应用中会调用后端 API 获取真实数据。\n\n**功能特性：**\n- 📊 数据查询\n- 📈 趋势分析\n- 🔍 深度洞察`,
+      timestamp: Date.now(),
+      suggestedQuestions: [
+        '详细数据是多少？',
+        '与上月对比如何？',
+        '导出这个报告'
+      ]
     })
-
-    // 渲染图表
-    if (data.data_type === 'chart' && data.data?.chart) {
-      await nextTick()
-      renderChart(data.data.chart)
-    }
-
-    // 添加到历史
-    queryHistory.unshift({
-      query: content,
-      time: new Date().toLocaleString('zh-CN')
-    })
-
-  } catch (error: any) {
-    messages.push({
-      role: 'assistant',
-      type: 'text',
-      content: `❌ 查询失败：${error.message}`,
-      error: true,
-      time: new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
-    })
+  } catch (error) {
     ElMessage.error('查询失败，请稍后重试')
   } finally {
-    isLoading.value = false
+    loading.value = false
+    await nextTick()
     scrollToBottom()
   }
 }
 
-// 发送快捷问题
 function sendQuickQuestion(question: string) {
-  inputMessage.value = question
+  queryInput.value = question
   sendMessage()
 }
 
-// 处理回车
-function handleEnter(e: KeyboardEvent) {
-  if (!e.shiftKey) {
-    e.preventDefault()
-    sendMessage()
-  }
-}
-
-// 滚动到底部
 function scrollToBottom() {
-  nextTick(() => {
-    if (messagesContainer.value) {
-      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
-    }
-  })
-}
-
-// 格式化文本
-function formatText(text: string) {
-  if (!text) return ''
-  text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-  text = text.replace(/\*(.*?)\*/g, '<em>$1</em>')
-  text = text.replace(/^- (.*$)/gm, '<li>$1</li>')
-  return text
-}
-
-// 渲染图表
-function renderChart(chartData: any) {
-  const chartIndex = messages.length - 1
-  const chartEl = document.getElementById(`chart-${chartIndex}`)
-  if (!chartEl) return
-
-  const chart = echarts.init(chartEl)
-  chart.setOption({
-    title: { text: chartData.title || '数据图表', left: 'center' },
-    tooltip: { trigger: 'axis' },
-    xAxis: { type: 'category', data: chartData.xAxis?.data || [] },
-    yAxis: { type: 'value' },
-    series: chartData.series || []
-  })
-}
-
-// 添加反馈
-function addFeedback(index: number, type: 'like' | 'dislike') {
-  messages[index].feedback = type
-  ElMessage.success(type === 'like' ? '感谢反馈！' : '我们会改进的！')
-}
-
-// 获取 Session ID
-function getSessionId() {
-  let sessionId = localStorage.getItem('smart_query_session')
-  if (!sessionId) {
-    sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9)
-    localStorage.setItem('smart_query_session', sessionId)
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
   }
-  return sessionId
 }
 
-// 清空历史
-function clearHistory() {
-  queryHistory.splice(0)
-  ElMessage.success('已清空查询历史')
+function handleFeedback(messageId: number, type: 'up' | 'down') {
+  ElMessage.success(type === 'up' ? '感谢点赞！' : '已收到反馈')
 }
 
-// 加载历史
-function loadHistory(item: any) {
-  inputMessage.value = item.query
-  sendMessage()
+async function copyMessage(content: string) {
+  try {
+    await navigator.clipboard.writeText(content)
+    ElMessage.success('已复制到剪贴板')
+  } catch {
+    ElMessage.error('复制失败')
+  }
 }
 
-// 加载收藏
-function loadFavorite(item: any) {
-  inputMessage.value = item.query
-  sendMessage()
-}
+// ==================== Lifecycle ====================
 
 onMounted(() => {
-  console.log('SmartQuery v2 已挂载')
+  document.title = '智能问数 Pro - GSD 平台'
 })
 </script>
 
 <style scoped>
-/* 容器 */
-.smart-query-v2 {
+/* ==================== Variables ==================== */
+
+.smart-query-pro {
+  --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  --success-gradient: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
+  --warning-gradient: linear-gradient(135deg, #fa8c16 0%, #ffc53d 100%);
+  --danger-gradient: linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%);
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
+  --shadow-xl: 0 12px 48px rgba(0, 0, 0, 0.2);
+  
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-full: 9999px;
+  
+  --transition-fast: 150ms ease;
+  --transition-base: 300ms ease;
+  --transition-slow: 500ms ease;
+
   display: flex;
   flex-direction: column;
   height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  overflow: hidden;
 }
 
-/* 顶部导航 */
-.top-nav {
+/* ==================== Top Navigation ==================== */
+
+.top-nav-pro {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 12px 20px;
+  padding: 16px 24px;
   background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: var(--shadow-md);
+  z-index: 1000;
 }
 
-.nav-left {
-  display: flex;
-  gap: 8px;
-}
-
-.nav-btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: 8px;
-  background: #f0f0f0;
-  color: #666;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.nav-btn:hover {
-  background: #e0e0e0;
-}
-
-.nav-btn.active {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-}
-
-.nav-right {
+.nav-brand {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.user-menu {
+.brand-text {
+  font-size: 20px;
+  font-weight: 700;
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.nav-links {
+  display: flex;
+  gap: 12px;
+}
+
+.nav-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border: none;
-  background: transparent;
+  gap: 16px;
+}
+
+.user-avatar {
   cursor: pointer;
-  border-radius: 8px;
+  border: 2px solid transparent;
+  transition: var(--transition-fast);
 }
 
-.user-menu:hover {
-  background: #f0f0f0;
+.user-avatar:hover {
+  border-color: #667eea;
+  transform: scale(1.05);
 }
 
-/* 主内容区 */
-.main-content {
+/* ==================== Main Content ==================== */
+
+.main-content-pro {
   flex: 1;
   display: flex;
-  gap: 20px;
-  padding: 20px;
   overflow: hidden;
+  padding: 24px;
 }
 
-/* 聊天区 */
-.chat-section {
+.chat-section-pro {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: white;
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
-/* 消息容器 */
-.messages-container {
+/* ==================== Messages Container ==================== */
+
+.messages-container-pro {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
-  background: #f8f9fa;
+  padding: 24px;
+  scroll-behavior: smooth;
 }
 
-/* 欢迎状态 */
-.welcome-state {
+.messages-container-pro::-webkit-scrollbar {
+  width: 8px;
+}
+
+.messages-container-pro::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: var(--radius-full);
+}
+
+.messages-container-pro::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #667eea, #764ba2);
+  border-radius: var(--radius-full);
+}
+
+/* ==================== Welcome Section ==================== */
+
+.welcome-section {
   display: flex;
-  justify-content: center;
   align-items: center;
-  height: 100%;
+  justify-content: center;
+  min-height: 100%;
 }
 
-.welcome-card {
-  max-width: 600px;
-  text-align: center;
+.welcome-card-pro {
+  max-width: 800px;
+  width: 100%;
   padding: 40px;
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  text-align: center;
 }
 
-.welcome-icon {
+.welcome-header {
+  margin-bottom: 40px;
+}
+
+.welcome-icon-pro {
   font-size: 64px;
   margin-bottom: 16px;
+  animation: bounce 2s infinite;
 }
 
-.welcome-card h2 {
-  margin: 0 0 8px;
-  font-size: 24px;
-  color: #333;
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
 }
 
-.welcome-desc {
-  color: #666;
-  margin-bottom: 32px;
-}
-
-/* 快捷问题 */
-.section-title {
-  text-align: left;
-  color: #666;
-  font-size: 14px;
+.welcome-title {
+  font-size: 32px;
+  font-weight: 700;
+  background: var(--primary-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
   margin-bottom: 12px;
 }
 
-.question-grid {
+.welcome-subtitle {
+  font-size: 16px;
+  color: #64748b;
+}
+
+/* ==================== Features Grid ==================== */
+
+.features-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 40px;
 }
 
-.question-chip {
-  padding: 12px 16px;
-  border: 1px solid #e0e0e0;
-  border-radius: 12px;
-  background: white;
-  color: #667eea;
-  cursor: pointer;
-  transition: all 0.2s;
-  text-align: left;
-  font-size: 14px;
+.feature-card {
+  padding: 24px;
+  background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+  border-radius: var(--radius-lg);
+  border: 1px solid #e2e8f0;
+  transition: var(--transition-base);
 }
 
-.question-chip:hover {
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-lg);
   border-color: #667eea;
-  background: #667eea;
-  color: white;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-/* 功能特性 */
-.features {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.feature-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: #f8f9fa;
-  border-radius: 12px;
 }
 
 .feature-icon {
-  font-size: 32px;
+  font-size: 40px;
+  margin-bottom: 12px;
 }
 
-.feature-title {
+.feature-card h3 {
+  font-size: 18px;
   font-weight: 600;
-  color: #333;
-  margin-bottom: 4px;
+  color: #0f172a;
+  margin-bottom: 8px;
 }
 
-.feature-desc {
-  font-size: 12px;
-  color: #666;
+.feature-card p {
+  font-size: 13px;
+  color: #64748b;
 }
 
-/* 消息列表 */
-.message-list {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
+/* ==================== Quick Questions ==================== */
+
+.quick-questions-section {
+  text-align: left;
 }
 
-.message-wrapper {
-  display: flex;
-  gap: 12px;
-}
-
-.message-wrapper.user {
-  flex-direction: row-reverse;
-}
-
-.message-bubble {
-  max-width: 70%;
-  padding: 16px 20px;
-  border-radius: 16px;
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-}
-
-.message-wrapper.user .message-bubble {
-  background: linear-gradient(135deg, #667eea, #764ba2);
-  color: white;
-  border-radius: 16px 16px 0 16px;
-}
-
-.message-wrapper.assistant .message-bubble {
-  border-radius: 16px 16px 16px 0;
-}
-
-.message-header {
+.section-title {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 8px;
-  font-size: 12px;
-  color: #999;
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-bottom: 16px;
 }
 
-.message-avatar {
-  font-size: 16px;
+.question-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.question-chip-pro {
+  padding: 10px 20px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  border: 2px solid #e2e8f0 !important;
+  background: white !important;
+  color: #64748b !important;
+}
+
+.question-chip-pro:hover {
+  border-color: #667eea !important;
+  color: #667eea !important;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* ==================== Messages List ==================== */
+
+.messages-list-pro {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.message-item-pro {
+  display: flex;
+  gap: 16px;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-item-pro.user {
+  flex-direction: row-reverse;
+}
+
+.message-avatar-pro {
+  flex-shrink: 0;
+}
+
+.message-content-pro {
+  flex: 1;
+  max-width: 70%;
+}
+
+.message-item-pro.user .message-content-pro {
+  max-width: 70%;
+}
+
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .message-name {
   font-weight: 600;
+  color: #0f172a;
 }
 
 .message-time {
-  margin-left: auto;
+  font-size: 12px;
+  color: #94a3b8;
 }
 
-.message-body {
-  line-height: 1.6;
+.message-bubble-pro {
+  padding: 20px;
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid #e2e8f0;
 }
 
-/* 反馈按钮 */
-.feedback-actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #e0e0e0;
+.message-item-pro.user .message-bubble-pro {
+  background: var(--primary-gradient);
+  color: white;
+  border: none;
 }
 
-/* 追问建议 */
-.suggested-questions {
+.message-item-pro.user .message-name,
+.message-item-pro.user .message-time {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.message-text {
+  line-height: 1.8;
+  font-size: 15px;
+}
+
+.message-text :deep(strong) {
+  color: #667eea;
+  font-weight: 600;
+}
+
+.message-item-pro.user .message-text :deep(strong) {
+  color: white;
+}
+
+/* ==================== Suggested Questions ==================== */
+
+.suggested-section {
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid #e2e8f0;
 }
 
 .suggested-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 13px;
-  color: #999;
-  margin-bottom: 8px;
+  color: #64748b;
+  margin-bottom: 12px;
 }
 
 .suggested-chips {
@@ -741,47 +695,60 @@ onMounted(() => {
   gap: 8px;
 }
 
-.suggested-chip {
-  padding: 6px 12px;
-  background: #f5f5f5;
-  border-radius: 16px;
-  font-size: 12px;
-  color: #666;
+.suggested-chip-pro {
   cursor: pointer;
-  transition: all 0.2s;
+  transition: var(--transition-fast);
+  border: 1px dashed #cbd5e1 !important;
+  background: #f8fafc !important;
 }
 
-.suggested-chip:hover {
-  background: #667eea;
-  color: white;
+.suggested-chip-pro:hover {
+  border-color: #667eea !important;
+  background: #667eea !important;
+  color: white !important;
 }
 
-/* 加载状态 */
-.loading-state {
+/* ==================== Feedback Actions ==================== */
+
+.feedback-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #e2e8f0;
+}
+
+/* ==================== Loading Indicator ==================== */
+
+.loading-indicator {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 20px;
+  padding: 16px 20px;
 }
 
-.typing-indicator {
+.typing-bubble {
   display: flex;
   gap: 4px;
+  padding: 12px 16px;
+  background: white;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
-.typing-indicator span {
+.typing-bubble span {
   width: 8px;
   height: 8px;
-  background: #999;
+  background: #667eea;
   border-radius: 50%;
   animation: typing 1.4s infinite;
 }
 
-.typing-indicator span:nth-child(2) {
+.typing-bubble span:nth-child(2) {
   animation-delay: 0.2s;
 }
 
-.typing-indicator span:nth-child(3) {
+.typing-bubble span:nth-child(3) {
   animation-delay: 0.4s;
 }
 
@@ -794,158 +761,105 @@ onMounted(() => {
   }
 }
 
-/* 输入区 */
-.input-section {
-  padding: 20px;
+.loading-text {
+  font-size: 14px;
+  color: #64748b;
+}
+
+/* ==================== Input Section ==================== */
+
+.input-section-pro {
+  padding: 24px;
   background: white;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid #e2e8f0;
 }
 
-.input-wrapper {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.query-input :deep(.el-textarea__inner) {
-  border-radius: 12px;
-  resize: none;
-}
-
-.send-btn {
-  min-width: 100px;
-  border-radius: 12px;
-}
-
-.input-hint {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #999;
-}
-
-/* 侧边栏 */
-.sidebar-section {
-  width: 300px;
+.input-wrapper-pro {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
-.sidebar-card {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+.input-wrapper-pro :deep(.el-textarea__inner) {
+  border-radius: var(--radius-lg);
+  resize: none;
+  border: 2px solid #e2e8f0;
+  transition: var(--transition-fast);
+  font-size: 15px;
+  line-height: 1.6;
 }
 
-.card-header {
+.input-wrapper-pro :deep(.el-textarea__inner:hover) {
+  border-color: #cbd5e1;
+}
+
+.input-wrapper-pro :deep(.el-textarea__inner:focus) {
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.input-actions {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.history-list,
-.favorites-list {
+.input-tips {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.history-item,
-.favorite-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.history-item:hover,
-.favorite-item:hover {
-  background: #f5f5f5;
-}
-
-.history-icon,
-.favorite-icon {
-  font-size: 20px;
-}
-
-.history-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.history-query {
-  font-size: 14px;
-  color: #333;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.history-time {
-  font-size: 12px;
-  color: #999;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 20px;
-  color: #999;
-  font-size: 14px;
-}
-
-/* 图表内容 */
-.chart-content {
-  margin-top: 16px;
-  height: 300px;
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-}
-
-.echart-container {
-  width: 100%;
-  height: 100%;
-}
-
-/* 统计卡片 */
-.stats-content {
-  margin-top: 16px;
-}
-
-.stat-card {
-  text-align: center;
-  padding: 16px;
-}
-
-.stat-label {
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
-  color: #999;
-  margin-bottom: 8px;
+  color: #64748b;
 }
 
-.stat-value {
-  font-size: 24px;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 4px;
+/* ==================== Transitions ==================== */
+
+.message-fade-enter-active,
+.message-fade-leave-active {
+  transition: all 0.3s ease;
 }
 
-.stat-trend {
-  font-size: 12px;
+.message-fade-enter-from {
+  opacity: 0;
+  transform: translateY(20px);
 }
 
-.stat-trend.up {
-  color: #f56c6c;
+.message-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-20px);
 }
 
-.stat-trend.down {
-  color: #67c23a;
+/* ==================== Responsive ==================== */
+
+@media (max-width: 1024px) {
+  .features-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .message-content-pro {
+    max-width: 85%;
+  }
+}
+
+@media (max-width: 768px) {
+  .top-nav-pro {
+    padding: 12px 16px;
+  }
+  
+  .nav-links {
+    display: none;
+  }
+  
+  .main-content-pro {
+    padding: 12px;
+  }
+  
+  .welcome-card-pro {
+    padding: 24px;
+  }
+  
+  .features-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GSD 测试页面</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      color: #667eea;
+      margin-bottom: 16px;
+      font-size: 24px;
+    }
+    
+    .status {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+    
+    .status.ok {
+      background: #d4edda;
+      color: #155724;
+    }
+    
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    
+    .status.loading {
+      background: #fff3cd;
+      color: #856404;
+    }
+    
+    button {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      min-height: 44px;
+    }
+    
+    button:hover {
+      opacity: 0.9;
+    }
+    
+    button:active {
+      transform: scale(0.98);
+    }
+    
+    .result {
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 14px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    
+    @media (max-width: 768px) {
+      body {
+        padding: 12px;
+      }
+      
+      h1 {
+        font-size: 20px;
+      }
+      
+      .card {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>🔧 GSD 网络诊断工具</h1>
+      
+      <div id="network-status" class="status loading">
+        正在检查网络连接...
+      </div>
+      
+      <div id="api-status" class="status loading">
+        正在检查 API 连接...
+      </div>
+      
+      <div id="frontend-status" class="status loading">
+        正在检查前端服务...
+      </div>
+    </div>
+    
+    <div class="card">
+      <h2 style="font-size: 18px; margin-bottom: 12px;">📊 系统信息</h2>
+      <div id="system-info" class="result">加载中...</div>
+    </div>
+    
+    <div class="card">
+      <button onclick="runDiagnostics()">🔄 重新检测</button>
+    </div>
+  </div>
+  
+  <script>
+    // 获取当前访问地址
+    const currentHost = window.location.host;
+    const currentProtocol = window.location.protocol;
+    
+    // 系统信息
+    const systemInfo = {
+      访问地址：currentHost,
+      协议：currentProtocol,
+      用户代理：navigator.userAgent,
+      屏幕宽度：window.screen.width,
+      屏幕高度：window.screen.height,
+      窗口宽度：window.innerWidth,
+      窗口高度：window.innerHeight,
+      网络在线：navigator.onLine ? '是' : '否'
+    };
+    
+    document.getElementById('system-info').textContent = JSON.stringify(systemInfo, null, 2);
+    
+    // 运行诊断
+    async function runDiagnostics() {
+      // 检查网络
+      const networkStatus = document.getElementById('network-status');
+      networkStatus.className = 'status loading';
+      networkStatus.textContent = '正在检查网络连接...';
+      
+      try {
+        const response = await fetch(`${currentProtocol}//${currentHost}/`, { 
+          method: 'HEAD',
+          mode: 'no-cors'
+        });
+        networkStatus.className = 'status ok';
+        networkStatus.textContent = '✅ 网络连接正常';
+      } catch (error) {
+        networkStatus.className = 'status error';
+        networkStatus.textContent = `❌ 网络连接失败：${error.message}`;
+      }
+      
+      // 检查 API
+      const apiStatus = document.getElementById('api-status');
+      apiStatus.className = 'status loading';
+      apiStatus.textContent = '正在检查 API 连接...';
+      
+      try {
+        // 尝试多个可能的 API 地址
+        const apiUrls = [
+          `${currentProtocol}//${currentHost}/health`,
+          `${currentProtocol}//${currentHost}/api/health`,
+          'http://127.0.0.1:8005/health',
+          `http://${window.location.hostname.split('.')[0]}.113:8005/health`
+        ];
+        
+        let apiOk = false;
+        let apiError = '';
+        
+        for (const url of apiUrls) {
+          try {
+            const response = await fetch(url, { 
+              method: 'GET',
+              headers: { 'Accept': 'application/json' }
+            });
+            if (response.ok) {
+              const data = await response.json();
+              apiOk = true;
+              apiStatus.className = 'status ok';
+              apiStatus.textContent = `✅ API 连接正常 (${url}) - ${data.status}`;
+              break;
+            }
+          } catch (e) {
+            apiError = e.message;
+            continue;
+          }
+        }
+        
+        if (!apiOk) {
+          apiStatus.className = 'status error';
+          apiStatus.textContent = `❌ API 连接失败：${apiError}`;
+        }
+      } catch (error) {
+        apiStatus.className = 'status error';
+        apiStatus.textContent = `❌ API 连接失败：${error.message}`;
+      }
+      
+      // 检查前端
+      const frontendStatus = document.getElementById('frontend-status');
+      frontendStatus.className = 'status loading';
+      frontendStatus.textContent = '正在检查前端服务...';
+      
+      try {
+        const response = await fetch(`${currentProtocol}//${currentHost}/index.html`);
+        if (response.ok) {
+          frontendStatus.className = 'status ok';
+          frontendStatus.textContent = '✅ 前端服务正常';
+        } else {
+          frontendStatus.className = 'status error';
+          frontendStatus.textContent = `❌ 前端服务异常：${response.status}`;
+        }
+      } catch (error) {
+        frontendStatus.className = 'status error';
+        frontendStatus.textContent = `❌ 前端服务失败：${error.message}`;
+      }
+    }
+    
+    // 页面加载时自动运行
+    runDiagnostics();
+  </script>
+</body>
+</html>

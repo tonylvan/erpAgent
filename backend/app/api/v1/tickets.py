@@ -143,19 +143,22 @@ def transfer_ticket(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     
-    old_assignee = ticket.assigned_to
-    ticket.assigned_to = transfer_data.get("new_assignee")
-    ticket.status = "IN_PROGRESS"
+    # Verify ticket is assigned
+    if not ticket.assigned_to:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Ticket {ticket_id} is not assigned. Please assign it first before transferring."
+        )
     
-    # Log transfer
-    workflow_service = TicketWorkflowService()
-    # Note: Need to convert Ticket to Task for workflow service
+    old_assignee = ticket.assigned_to
+    ticket.assigned_to = transfer_data.get("transfer_to")
+    ticket.status = "IN_PROGRESS"
     
     db.commit()
     db.refresh(ticket)
     return {
         **ticket.to_dict(),
-        "message": f"Ticket transferred from {old_assignee} to {transfer_data.get('new_assignee')}",
+        "message": f"Ticket transferred from {old_assignee} to {transfer_data.get('transfer_to')}",
         "reason": transfer_data.get("reason")
     }
 

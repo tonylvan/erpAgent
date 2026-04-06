@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GSD Alert Center - Diagnostic</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .diagnostic-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .status-ok { color: #10b981; }
+        .status-error { color: #ef4444; }
+        .status-loading { color: #f59e0b; }
+        h1 { color: white; text-align: center; }
+        .test-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-btn:hover { background: #5568d3; }
+        pre {
+            background: #f3f4f6;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 GSD Alert Center - Diagnostic Tool</h1>
+    
+    <div class="diagnostic-card">
+        <h2>1. Frontend Server Check</h2>
+        <div id="frontend-status">Testing...</div>
+    </div>
+    
+    <div class="diagnostic-card">
+        <h2>2. Backend API Check</h2>
+        <div id="backend-status">Testing...</div>
+    </div>
+    
+    <div class="diagnostic-card">
+        <h2>3. CORS Check</h2>
+        <div id="cors-status">Testing...</div>
+    </div>
+    
+    <div class="diagnostic-card">
+        <h2>4. Alert Stats API</h2>
+        <button class="test-btn" onclick="testAlertStats()">Test /api/v1/alerts/stats</button>
+        <div id="alert-stats-result"></div>
+    </div>
+    
+    <div class="diagnostic-card">
+        <h2>5. Alert List API</h2>
+        <button class="test-btn" onclick="testAlertList()">Test /api/v1/alerts</button>
+        <div id="alert-list-result"></div>
+    </div>
+    
+    <div class="diagnostic-card">
+        <h2>6. Console Log</h2>
+        <pre id="console-log"></pre>
+    </div>
+    
+    <script>
+        const logs = [];
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type}: ${message}`;
+            logs.push(logEntry);
+            document.getElementById('console-log').textContent = logs.join('\n');
+            console.log(logEntry);
+        }
+        
+        async function checkFrontend() {
+            try {
+                const response = await fetch(window.location.origin);
+                if (response.ok) {
+                    document.getElementById('frontend-status').innerHTML = 
+                        '<span class="status-ok">✅ Frontend server is running</span>';
+                    log('Frontend server: OK');
+                } else {
+                    document.getElementById('frontend-status').innerHTML = 
+                        '<span class="status-error">❌ Frontend server returned: ' + response.status + '</span>';
+                    log('Frontend server: ERROR ' + response.status, 'error');
+                }
+            } catch (error) {
+                document.getElementById('frontend-status').innerHTML = 
+                    '<span class="status-error">❌ Cannot connect: ' + error.message + '</span>';
+                log('Frontend server: ERROR ' + error.message, 'error');
+            }
+        }
+        
+        async function checkBackend() {
+            try {
+                const response = await fetch('http://localhost:8005/health');
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('backend-status').innerHTML = 
+                        '<span class="status-ok">✅ Backend API is running (Port 8005)</span><br>' +
+                        '<small>Version: ' + (data.version || 'N/A') + '</small>';
+                    log('Backend API: OK');
+                } else {
+                    document.getElementById('backend-status').innerHTML = 
+                        '<span class="status-error">❌ Backend API returned: ' + response.status + '</span>';
+                    log('Backend API: ERROR ' + response.status, 'error');
+                }
+            } catch (error) {
+                document.getElementById('backend-status').innerHTML = 
+                    '<span class="status-error">❌ Cannot connect: ' + error.message + '</span>';
+                    log('Backend API: ERROR ' + error.message, 'error');
+            }
+        }
+        
+        async function checkCors() {
+            try {
+                const response = await fetch('http://localhost:8005/api/v1/alerts/stats', {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json' }
+                });
+                if (response.ok) {
+                    document.getElementById('cors-status').innerHTML = 
+                        '<span class="status-ok">✅ CORS is configured correctly</span>';
+                    log('CORS: OK');
+                } else {
+                    document.getElementById('cors-status').innerHTML = 
+                        '<span class="status-error">❌ CORS error or API failed: ' + response.status + '</span>';
+                    log('CORS: ERROR ' + response.status, 'error');
+                }
+            } catch (error) {
+                document.getElementById('cors-status').innerHTML = 
+                    '<span class="status-error">❌ CORS error: ' + error.message + '</span>';
+                    log('CORS: ERROR ' + error.message, 'error');
+            }
+        }
+        
+        async function testAlertStats() {
+            const resultDiv = document.getElementById('alert-stats-result');
+            try {
+                resultDiv.innerHTML = '<span class="status-loading">⏳ Testing...</span>';
+                const response = await fetch('http://localhost:8005/api/v1/alerts/stats');
+                const data = await response.json();
+                resultDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                log('Alert Stats API: OK - ' + JSON.stringify(data));
+            } catch (error) {
+                resultDiv.innerHTML = '<span class="status-error">❌ Error: ' + error.message + '</span>';
+                log('Alert Stats API: ERROR ' + error.message, 'error');
+            }
+        }
+        
+        async function testAlertList() {
+            const resultDiv = document.getElementById('alert-list-result');
+            try {
+                resultDiv.innerHTML = '<span class="status-loading">⏳ Testing...</span>';
+                const response = await fetch('http://localhost:8005/api/v1/alerts/');
+                const data = await response.json();
+                resultDiv.innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                log('Alert List API: OK - ' + data.length + ' alerts');
+            } catch (error) {
+                resultDiv.innerHTML = '<span class="status-error">❌ Error: ' + error.message + '</span>';
+                log('Alert List API: ERROR ' + error.message, 'error');
+            }
+        }
+        
+        // Run all checks on load
+        window.onload = function() {
+            log('Diagnostic tool started');
+            checkFrontend();
+            checkBackend();
+            checkCors();
+        };
+    </script>
+</body>
+</html>
