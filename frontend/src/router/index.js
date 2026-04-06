@@ -1,12 +1,15 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import AlertCenter_v3 from '../views/AlertCenter_v3.vue'
+import AlertCenter from '../views/AlertCenter.vue'
 import SmartQuery from '../views/SmartQuery.vue'
+import Graph from '../views/Graph.vue'
+import TicketCenter from '../views/TicketCenter.vue'
+import TicketDetail from '../views/TicketDetail.vue'
 
 const routes = [
   {
     path: '/',
     name: 'AlertCenter',
-    component: AlertCenter_v3,
+    component: AlertCenter,
     meta: {
       title: 'Alert Center - GSD Platform'
     }
@@ -16,7 +19,31 @@ const routes = [
     name: 'SmartQuery',
     component: SmartQuery,
     meta: {
-      title: 'Smart Query - GSD Platform'
+      title: 'Smart Query Pro - GSD Platform'
+    }
+  },
+  {
+    path: '/knowledge-graph',
+    name: 'KnowledgeGraph',
+    component: Graph,
+    meta: {
+      title: 'Knowledge Graph Pro - GSD Platform'
+    }
+  },
+  {
+    path: '/tickets',
+    name: 'TicketCenter',
+    component: TicketCenter,
+    meta: {
+      title: 'Ticket Center - GSD Platform'
+    }
+  },
+  {
+    path: '/tickets/:id',
+    name: 'TicketDetail',
+    component: TicketDetail,
+    meta: {
+      title: 'Ticket Detail - GSD Platform'
     }
   }
 ]
