@@ -40,6 +40,14 @@ class QueryResponse(BaseModel):
     follow_up: Optional[List[str]] = None  # 推荐追问
 
 
+class SuggestedQuestionsResponse(BaseModel):
+    """推荐问题响应"""
+    success: bool = True
+    questions: List[str] = []
+    categories: Optional[Dict[str, List[str]]] = None
+    timestamp: datetime = None
+
+
 class ConversationContext:
     """多轮对话上下文管理"""
     
@@ -719,15 +727,39 @@ async def smart_query(request: QueryRequest):
         raise HTTPException(status_code=500, detail=f"查询失败：{str(e)}")
 
 
-@router.get("/suggested-questions")
+@router.get("/suggested-questions", response_model=SuggestedQuestionsResponse)
 async def get_suggested_questions():
-    """推荐问题"""
-    return {
-        "questions": [
+    """
+    获取推荐问题列表
+    
+    返回智能问数的推荐问题，帮助用户快速开始查询
+    """
+    questions = {
+        "sales": [
             "显示本周销售趋势",
             "查询 Top 10 客户",
             "统计各产品类别销售额",
+            "分析本月销售增长率"
+        ],
+        "inventory": [
             "显示库存预警商品",
-            "分析本周付款预测"
+            "查询库存周转率",
+            "哪些商品需要补货"
+        ],
+        "finance": [
+            "分析本周付款预测",
+            "查询应收账款账龄",
+            "显示现金流状况"
+        ],
+        "customer": [
+            "客户分级统计",
+            "新客户增长趋势",
+            "客户复购率分析"
         ]
     }
+    
+    return SuggestedQuestionsResponse(
+        questions=[q for category in questions.values() for q in category[:2]],
+        categories=questions,
+        timestamp=datetime.now()
+    )

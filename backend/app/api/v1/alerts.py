@@ -14,7 +14,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from app.services.alert_rules import AlertRuleEngine, create_alert_engine
@@ -178,6 +178,99 @@ async def get_financial_risks(engine: AlertRuleEngine = Depends(get_alert_engine
         raise HTTPException(status_code=500, detail=f"获取财务风险失败：{str(e)}")
 
 
+@router.get("/rules", response_model=AlertRuleListResponse)
+async def get_alert_rules():
+    """
+    获取所有预警规则
+    
+    返回系统中配置的所有预警规则列表
+    """
+    rules = [
+        {
+            "name": "库存预警",
+            "description": "库存低于安全线时触发预警",
+            "category": "业务",
+            "severity": "YELLOW",
+            "enabled": True
+        },
+        {
+            "name": "库存为零预警",
+            "description": "库存为 0 时触发紧急预警",
+            "category": "业务",
+            "severity": "RED",
+            "enabled": True
+        },
+        {
+            "name": "付款逾期预警",
+            "description": "发票付款逾期时触发预警",
+            "category": "财务",
+            "severity": "ORANGE",
+            "enabled": True
+        },
+        {
+            "name": "客户流失预警",
+            "description": "客户 90 天未下单时触发预警",
+            "category": "业务",
+            "severity": "ORANGE",
+            "enabled": True
+        },
+        {
+            "name": "供应商交货逾期预警",
+            "description": "采购订单交货逾期时触发预警",
+            "category": "业务",
+            "severity": "YELLOW",
+            "enabled": True
+        },
+        {
+            "name": "销售订单异常预警",
+            "description": "订单金额异常波动时触发预警",
+            "category": "业务",
+            "severity": "YELLOW",
+            "enabled": True
+        },
+        {
+            "name": "现金流预警",
+            "description": "现金流低于安全线时触发预警",
+            "category": "财务",
+            "severity": "RED",
+            "enabled": True
+        },
+        {
+            "name": "应收账款逾期预警",
+            "description": "客户应收账款逾期时触发预警",
+            "category": "财务",
+            "severity": "ORANGE",
+            "enabled": True
+        },
+        {
+            "name": "应付账款风险预警",
+            "description": "7 天内到期应付账款预警",
+            "category": "财务",
+            "severity": "YELLOW",
+            "enabled": True
+        },
+        {
+            "name": "财务比率异常预警",
+            "description": "流动比率/负债权益比/ROE 异常时触发预警",
+            "category": "财务",
+            "severity": "ORANGE",
+            "enabled": True
+        },
+        {
+            "name": "预算偏差预警",
+            "description": "部门预算偏差超过 20% 时触发预警",
+            "category": "财务",
+            "severity": "YELLOW",
+            "enabled": True
+        }
+    ]
+    
+    return AlertRuleListResponse(
+        rules=rules,
+        total=len(rules)
+    )
+
+
 @router.post("/{alert_type}/acknowledge")
 async def acknowledge_alert(
     alert_type: str,
@@ -253,55 +346,6 @@ async def assign_alert(
     except Exception as e:
         logger.error(f"Error assigning alert: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"分配预警失败：{str(e)}")
-
-
-@router.get("/rules")
-async def get_alert_rules():
-    """
-    获取所有预警规则定义
-    
-    返回所有可用的预警规则及其说明
-    """
-    rules = {
-        "business_alerts": {
-            "inventory_low": {
-                "name": "库存预警",
-                "description": "库存低于安全线时触发",
-                "severity": "YELLOW",
-            },
-            "inventory_zero": {
-                "name": "库存为零预警",
-                "description": "库存为 0 时触发高危预警",
-                "severity": "RED",
-            },
-            "payment_overdue": {
-                "name": "付款逾期预警",
-                "description": "发票付款逾期时触发",
-                "severity": "RED/ORANGE/YELLOW",
-            },
-            "customer_churn": {
-                "name": "客户流失预警",
-                "description": "客户 90 天未下单时触发",
-                "severity": "RED/ORANGE/YELLOW",
-            },
-            "delivery_delay": {
-                "name": "供应商交货逾期预警",
-                "description": "采购订单交货逾期时触发",
-                "severity": "RED/ORANGE/YELLOW",
-            },
-            "sales_anomaly": {
-                "name": "销售订单异常预警",
-                "description": "订单金额异常波动时触发",
-                "severity": "ORANGE/YELLOW",
-            },
-        },
-        "financial_risks": {
-            "cashflow_risk": {
-                "name": "现金流预警",
-                "description": "现金流低于安全线时触发",
-                "severity": "RED",
-            },
-            "ar_overdue_risk": {
                 "name": "应收账款逾期预警",
                 "description": "客户应收账款逾期时触发",
                 "severity": "RED/ORANGE/YELLOW",
@@ -369,3 +413,22 @@ def calculate_financial_health_score(engine: AlertRuleEngine) -> Optional[float]
     except Exception as e:
         logger.error(f"Error calculating health score: {e}")
         return None
+
+
+# ==================== 规则管理 API ====================
+
+class AlertRule(BaseModel):
+    """预警规则模型"""
+    name: str
+    description: str
+    category: str
+    severity: str
+    enabled: bool = True
+
+
+class AlertRuleListResponse(BaseModel):
+    """预警规则列表响应"""
+    success: bool = True
+    rules: List[AlertRule] = []
+    total: int = 0
+    timestamp: datetime = Field(default_factory=datetime.now)

@@ -24,6 +24,7 @@ from app.api.v1.smart_query_v26 import router as smart_query_v26_router
 from app.api.v1.smart_query_v27 import router as smart_query_v27_router
 from app.api.v1.smart_query_v35 import router as smart_query_v35_router
 from app.api.v1.smart_query_v40 import router as smart_query_v40_router
+from app.api.v1.smart_query_v3_agent import router as smart_query_v3_agent_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.query_history import router as query_history_router
 from app.api.v1.alerts_v3 import router as alerts_v3_router
@@ -118,6 +119,7 @@ app.include_router(smart_query_v26_router, prefix="/api/v1/smart-query-v26")  # 
 app.include_router(smart_query_v27_router, prefix="/api/v1/smart-query-v27")  #  API v2.7EBS ?
 app.include_router(smart_query_v35_router, prefix="/api/v1/smart-query-v35")  # v3.5 - DashScope LLM
 app.include_router(smart_query_v40_router, prefix="/api/v1/smart-query-v40")  # v4.0 - 
+app.include_router(smart_query_v3_agent_router, prefix="/api/v1/smart-query-v3-agent")  # v3 Agent - OpenClaw integration
 # P0  - ?
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(query_history_router, prefix="/api/v1")

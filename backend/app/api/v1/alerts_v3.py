@@ -12,8 +12,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# ==================== Models ====================
-
 class AlertStats(BaseModel):
     """Alert statistics by severity level"""
     critical: int
@@ -39,6 +37,23 @@ class AcknowledgeRequest(BaseModel):
 class ExportRequest(BaseModel):
     """Request body for export"""
     filters: Optional[dict] = None
+
+
+class AlertRule(BaseModel):
+    """Alert rule model"""
+    name: str
+    description: str
+    category: str
+    severity: str
+    enabled: bool = True
+
+
+class AlertRuleListResponse(BaseModel):
+    """Alert rule list response"""
+    success: bool = True
+    rules: List[AlertRule] = []
+    total: int = 0
+    timestamp: datetime = None
 
 # ==================== Database Endpoints ====================
 
@@ -121,6 +136,101 @@ async def get_alerts(
         )
         for alert in alerts
     ]
+
+
+@router.get('/rules', response_model=AlertRuleListResponse)
+async def get_alert_rules():
+    """
+    Get all alert rules
+    
+    Returns a list of all configured alert rules in the system
+    """
+    rules = [
+        {
+            "name": "库存预警",
+            "description": "库存低于安全线时触发预警",
+            "category": "业务",
+            "severity": "YELLOW",
+            "enabled": True
+        },
+        {
+            "name": "库存为零预警",
+            "description": "库存为 0 时触发紧急预警",
+            "category": "业务",
+            "severity": "RED",
+            "enabled": True
+        },
+        {
+            "name": "付款逾期预警",
+            "description": "发票付款逾期时触发预警",
+            "category": "财务",
+            "severity": "ORANGE",
+            "enabled": True
+        },
+        {
+            "name": "客户流失预警",
+            "description": "客户 90 天未下单时触发预警",
+            "category": "业务",
+            "severity": "ORANGE",
+            "enabled": True
+        },
+        {
+            "name": "供应商交货逾期预警",
+            "description": "采购订单交货逾期时触发预警",
+            "category": "业务",
+            "severity": "YELLOW",
+            "enabled": True
+        },
+        {
+            "name": "销售订单异常预警",
+            "description": "订单金额异常波动时触发预警",
+            "category": "业务",
+            "severity": "YELLOW",
+            "enabled": True
+        },
+        {
+            "name": "现金流预警",
+            "description": "现金流低于安全线时触发预警",
+            "category": "财务",
+            "severity": "RED",
+            "enabled": True
+        },
+        {
+            "name": "应收账款逾期预警",
+            "description": "客户应收账款逾期时触发预警",
+            "category": "财务",
+            "severity": "ORANGE",
+            "enabled": True
+        },
+        {
+            "name": "应付账款风险预警",
+            "description": "7 天内到期应付账款预警",
+            "category": "财务",
+            "severity": "YELLOW",
+            "enabled": True
+        },
+        {
+            "name": "财务比率异常预警",
+            "description": "流动比率/负债权益比/ROE 异常时触发预警",
+            "category": "财务",
+            "severity": "ORANGE",
+            "enabled": True
+        },
+        {
+            "name": "预算偏差预警",
+            "description": "部门预算偏差超过 20% 时触发预警",
+            "category": "财务",
+            "severity": "YELLOW",
+            "enabled": True
+        }
+    ]
+    
+    return AlertRuleListResponse(
+        rules=rules,
+        total=len(rules),
+        timestamp=datetime.now()
+    )
+
 
 @router.get('/{alert_id}')
 async def get_alert(alert_id: int, db: Session = Depends(get_db)):

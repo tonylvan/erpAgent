@@ -1,0 +1,54 @@
+{
+  "test_suite": "3 Data Example E2E Tests",
+  "summary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "duration_seconds": 19.17559,
+    "success_rate": 100.0
+  },
+  "test_data_examples": [
+    {
+      "id": 1,
+      "name": "Customer Sales Query",
+      "query": "显示销售额前 10 的客户",
+      "expected": "Table/chart showing top 10 customers by sales"
+    },
+    {
+      "id": 2,
+      "name": "Product Inventory Query",
+      "query": "查询库存预警商品",
+      "expected": "List of products with low inventory"
+    },
+    {
+      "id": 3,
+      "name": "Order Trend Query",
+      "query": "显示本周订单趋势",
+      "expected": "Chart showing order trend for the week"
+    }
+  ],
+  "results": [
+    {
+      "test": "Test 1: Customer Sales Query",
+      "status": "PASSED",
+      "timestamp": "2026-04-07T13:37:53.160739",
+      "details": "Query interface accessible, input filled: 显示销售额前 10 的客户",
+      "screenshot": "D:\\erpAgent\\tests\\screenshots/3data_01_customer_sales_typing.png"
+    },
+    {
+      "test": "Test 2: Product Inventory Query",
+      "status": "PASSED",
+      "timestamp": "2026-04-07T13:37:58.018689",
+      "details": "Query interface accessible, input filled: 查询库存预警商品",
+      "screenshot": "D:\\erpAgent\\tests\\screenshots/3data_02_product_inventory_typing.png"
+    },
+    {
+      "test": "Test 3: Order Trend Query",
+      "status": "PASSED",
+      "timestamp": "2026-04-07T13:38:02.917059",
+      "details": "Query interface accessible, input filled: 显示本周订单趋势",
+      "screenshot": "D:\\erpAgent\\tests\\screenshots/3data_03_order_trend_typing.png"
+    }
+  ],
+  "generated_at": "2026-04-07T13:38:03.385794"
+}

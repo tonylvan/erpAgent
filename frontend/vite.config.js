@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
+import path from "path";
 
 /** 与 `uvicorn ... --port` 一致（使用 8005 端口） */
 const API_TARGET = process.env.VITE_PROXY_API ?? "http://127.0.0.1:8005";
@@ -32,6 +33,11 @@ export default defineConfig({
         target: API_TARGET,
         changeOrigin: true,
       },
+    },
+  },
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
     },
   },
 });

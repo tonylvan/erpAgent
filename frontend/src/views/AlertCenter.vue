@@ -246,11 +246,17 @@ const API_BASE = 'http://localhost:8006/api/v1/alerts'
 async function fetchAlertStats() {
   try {
     const response = await fetch(`${API_BASE}/stats`)
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
     const data = await response.json()
     stats.value = data
   } catch (error) {
     console.error('Failed to fetch alert stats:', error)
-    ElMessage.error('Failed to load alert statistics')
+    // Don't show error for empty data, only for actual errors
+    if (error.message && !error.message.includes('404')) {
+      ElMessage.error('Failed to load alert statistics')
+    }
   }
 }
 
@@ -271,12 +277,18 @@ async function fetchAlerts() {
     params.append('size', pagination.value.size.toString())
 
     const response = await fetch(`${API_BASE}?${params.toString()}`)
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
     const data = await response.json()
     alertList.value = data
     pagination.value.total = data.length // In production, get total from API
   } catch (error) {
     console.error('Failed to fetch alerts:', error)
-    ElMessage.error('Failed to load alerts')
+    // Don't show error for empty data, only for actual errors
+    if (error.message && !error.message.includes('404')) {
+      ElMessage.error('Failed to load alerts')
+    }
   } finally {
     loading.value = false
   }

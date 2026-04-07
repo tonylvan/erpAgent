@@ -1,0 +1,47 @@
+{
+  "summary": {
+    "total": 5,
+    "passed": 5,
+    "failed": 0,
+    "duration_seconds": 11.679585,
+    "success_rate": 100.0
+  },
+  "results": [
+    {
+      "test": "Homepage Load",
+      "status": "PASSED",
+      "timestamp": "2026-04-07T13:11:49.728427",
+      "details": "Title: ERP 知识图谱平台, Nav found: True",
+      "screenshot": "D:\\erpAgent\\tests\\screenshots/01_homepage.png"
+    },
+    {
+      "test": "Smart Query",
+      "status": "PASSED",
+      "timestamp": "2026-04-07T13:11:52.038352",
+      "details": "Query interface accessible",
+      "screenshot": "D:\\erpAgent\\tests\\screenshots/02_smart_query.png"
+    },
+    {
+      "test": "Ticket Center",
+      "status": "PASSED",
+      "timestamp": "2026-04-07T13:11:53.853828",
+      "details": "Stats cards: 4, Table found: True",
+      "screenshot": "D:\\erpAgent\\tests\\screenshots/03_ticket_center.png"
+    },
+    {
+      "test": "Alert Center",
+      "status": "PASSED",
+      "timestamp": "2026-04-07T13:11:54.690118",
+      "details": "Alert elements found: 0",
+      "screenshot": "D:\\erpAgent\\tests\\screenshots/04_alert_center.png"
+    },
+    {
+      "test": "Knowledge Graph",
+      "status": "PASSED",
+      "timestamp": "2026-04-07T13:11:55.542311",
+      "details": "Graph container found: False",
+      "screenshot": "D:\\erpAgent\\tests\\screenshots/05_knowledge_graph.png"
+    }
+  ],
+  "generated_at": "2026-04-07T13:11:55.983023"
+}
