@@ -1,0 +1,44 @@
+{
+  "phase": "P2",
+  "test_type": "Smart Query & Knowledge Graph API",
+  "summary": {
+    "total": 6,
+    "passed": 6,
+    "failed": 0,
+    "success_rate": 100.0,
+    "duration_seconds": 12.137784
+  },
+  "results": [
+    {
+      "test": "Smart Query Suggested Questions",
+      "status": "PASSED",
+      "details": "8 suggested questions returned"
+    },
+    {
+      "test": "Smart Query Query",
+      "status": "PASSED",
+      "details": "Smart query executed successfully"
+    },
+    {
+      "test": "Knowledge Graph Data",
+      "status": "PASSED",
+      "details": "Graph data: 8 nodes, 8 edges"
+    },
+    {
+      "test": "Knowledge Graph Stats",
+      "status": "PASSED",
+      "details": "Stats: 8 nodes, 8 edges"
+    },
+    {
+      "test": "Knowledge Graph Nodes",
+      "status": "PASSED",
+      "details": "50 nodes returned"
+    },
+    {
+      "test": "Knowledge Graph Edges",
+      "status": "PASSED",
+      "details": "100 edges returned"
+    }
+  ],
+  "generated_at": "2026-04-07T19:06:10.788108"
+}

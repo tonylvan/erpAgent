@@ -1,0 +1,29 @@
+{
+  "phase": "P2",
+  "test_type": "Smart Query & Knowledge Graph E2E",
+  "summary": {
+    "total": 3,
+    "passed": 3,
+    "failed": 0,
+    "success_rate": 100.0,
+    "duration_seconds": 18.693568
+  },
+  "results": [
+    {
+      "test": "Smart Query Page",
+      "status": "PASSED",
+      "details": "Smart Query page loaded, input and chat area visible, no error popup"
+    },
+    {
+      "test": "Knowledge Graph Page",
+      "status": "PASSED",
+      "details": "Knowledge Graph page loaded, graph rendered with 0 nodes and 5 edges, no error popup"
+    },
+    {
+      "test": "Graph Toolbar",
+      "status": "PASSED",
+      "details": "Graph toolbar found with controls"
+    }
+  ],
+  "generated_at": "2026-04-07T19:07:57.629359"
+}

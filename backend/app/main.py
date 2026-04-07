@@ -127,7 +127,7 @@ app.include_router(alerts_v3_router, prefix="/api/v1/alerts")  # Alert Center v2
 app.include_router(tickets_router, prefix="/api/v1/tickets")  # Ticket Center API
 app.include_router(ticket_workflow_router, prefix="/api/v1/tickets")  # Ticket Workflow API
 app.include_router(ticket_comments_router, prefix="/api/v1")  # Ticket Comments API (prefix already set in router)
-# Note: graph_router is already included via api_v1_router
+app.include_router(graph_router, prefix="/api/v1/graph")  # Knowledge Graph API
 
 # Test route to verify server is running with latest code
 @app.get("/api/v1/test")
