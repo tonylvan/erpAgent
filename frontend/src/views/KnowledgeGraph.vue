@@ -290,8 +290,8 @@ const initGraph = () => {
   // Initialize simulation
   initSimulation()
 
-  // Load sample data
-  loadSampleData()
+  // Note: Data will be loaded by loadGraphData() in onMounted
+  // loadSampleData() removed to use real API data
 }
 
 const initSimulation = () => {
