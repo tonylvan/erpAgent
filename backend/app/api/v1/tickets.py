@@ -13,7 +13,29 @@ from app.models.task import Task, TaskStatus, TaskPriority
 from app.services.ticket_workflow import TicketWorkflowService
 from app.auth.jwt import get_current_user
 
+from pydantic import BaseModel
+
 router = APIRouter()
+
+
+class TicketCreate(BaseModel):
+    """Request model for creating a ticket"""
+    title: str
+    description: str
+    priority: str = "MEDIUM"  # LOW/MEDIUM/HIGH/URGENT
+    category: str = "General"
+    assigned_to: Optional[str] = None
+
+
+class TicketCreateResponse(BaseModel):
+    """Response model for created ticket"""
+    success: bool
+    ticket_id: int
+    title: str
+    status: str
+    priority: str
+    created_at: str
+    message: str
 
 
 @router.get("/stats")
@@ -47,6 +69,42 @@ def get_ticket_stats(db: Session = Depends(get_db)):
         "total": total,
         "open": open_count,
     }
+
+
+@router.post("/", response_model=TicketCreateResponse)
+def create_ticket(
+    ticket_data: TicketCreate,
+    db: Session = Depends(get_db)
+):
+    """Create a new ticket"""
+    try:
+        # Create ticket
+        ticket = Ticket(
+            title=ticket_data.title,
+            description=ticket_data.description,
+            priority=ticket_data.priority,
+            category=ticket_data.category,
+            assigned_to=ticket_data.assigned_to,
+            status="OPEN",
+            created_by="system"  # In production, get from JWT token
+        )
+        
+        db.add(ticket)
+        db.commit()
+        db.refresh(ticket)
+        
+        return TicketCreateResponse(
+            success=True,
+            ticket_id=ticket.id,
+            title=ticket.title,
+            status=ticket.status,
+            priority=ticket.priority,
+            created_at=ticket.created_at.isoformat() if ticket.created_at else datetime.now().isoformat(),
+            message="Ticket created successfully"
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to create ticket: {str(e)}")
 
 
 @router.get("/")
