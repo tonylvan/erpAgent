@@ -21,6 +21,8 @@ from datetime import datetime, timedelta
 # 添加项目路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
+from app.services.neo4j_service import neo4j_service
+
 router = APIRouter(tags=["智能问数 v2"])
 
 

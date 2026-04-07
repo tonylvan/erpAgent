@@ -1,121 +1,147 @@
-# Neo4j 服务模块 - 提供统一的 Neo4j 连接管理
-
-from typing import Optional, Generator
-from contextlib import contextmanager
+"""
+Neo4j Database Service
+Handles connection and queries to Neo4j graph database
+"""
+import os
 import logging
+from typing import List, Dict, Any, Optional
+from neo4j import GraphDatabase
+from neo4j.exceptions import ServiceUnavailable
 
 logger = logging.getLogger(__name__)
 
 
 class Neo4jService:
-    """Neo4j 服务类"""
-    
-    def __init__(self, uri: str = "bolt://127.0.0.1:7687", 
-                 user: str = "neo4j", 
-                 password: str = "Tony1985"):
-        """
-        初始化 Neo4j 服务
-        
-        Args:
-            uri: Neo4j URI
-            user: 用户名
-            password: 密码
-        """
-        self.uri = uri
-        self.user = user
-        self.password = password
+    def __init__(self):
         self.driver = None
+        self.connected = False
+        self.connect()
     
     def connect(self):
-        """连接到 Neo4j"""
+        """Connect to Neo4j database"""
         try:
-            from neo4j import GraphDatabase
+            uri = os.getenv("NEO4J_URI", "bolt://127.0.0.1:7687")
+            user = os.getenv("NEO4J_USER", "neo4j")
+            password = os.getenv("NEO4J_PASSWORD", "password")
             
-            self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
-            logger.info(f"✅ Neo4j 连接成功：{self.uri}")
-            return True
+            self.driver = GraphDatabase.driver(uri, auth=(user, password))
+            
+            # Test connection
+            with self.driver.session() as session:
+                result = session.run("MATCH (n) RETURN count(n) as count LIMIT 1")
+                record = result.single()
+                if record:
+                    self.connected = True
+                    logger.info(f"[OK] Neo4j connected: {uri}")
+                else:
+                    self.connected = True
+                    logger.info(f"[OK] Neo4j connected (empty database): {uri}")
+                    
+        except ServiceUnavailable as e:
+            self.connected = False
+            logger.error(f"[ERROR] Neo4j connection failed: {e}")
         except Exception as e:
-            logger.error(f"❌ Neo4j 连接失败：{e}")
-            return False
+            self.connected = False
+            logger.error(f"[ERROR] Neo4j error: {e}")
     
     def close(self):
-        """关闭连接"""
+        """Close Neo4j connection"""
         if self.driver:
             self.driver.close()
-            logger.info("Neo4j 连接已关闭")
+            self.connected = False
     
-    @contextmanager
-    def get_session(self) -> Generator:
-        """
-        获取 Neo4j 会话（上下文管理器）
+    def query(self, cypher: str, params: Optional[Dict] = None) -> List[Dict]:
+        """Execute Cypher query and return results"""
+        if not self.connected or not self.driver:
+            logger.warning("Neo4j not connected, returning empty results")
+            return []
         
-        Yields:
-            Neo4j Session
-        """
-        if not self.driver:
-            self.connect()
-        
-        session = self.driver.session()
         try:
-            yield session
-        finally:
-            session.close()
-    
-    def execute_query(self, cypher: str, parameters: Optional[dict] = None) -> list:
-        """
-        执行 Cypher 查询
-        
-        Args:
-            cypher: Cypher 查询语句
-            parameters: 查询参数
-            
-        Returns:
-            list: 查询结果
-        """
-        try:
-            with self.get_session() as session:
-                result = session.run(cypher, parameters)
+            with self.driver.session() as session:
+                result = session.run(cypher, params or {})
                 return [record.data() for record in result]
         except Exception as e:
-            logger.error(f"查询执行失败：{e}")
+            logger.error(f"[ERROR] Neo4j query failed: {e}")
             return []
     
-    def health_check(self) -> bool:
-        """健康检查"""
+    def get_stats(self) -> Dict[str, Any]:
+        """Get database statistics"""
+        if not self.connected:
+            return {"nodes": 0, "relationships": 0, "labels": [], "relationship_types": []}
+        
         try:
-            result = self.execute_query("RETURN 1 as health")
-            return len(result) > 0 and result[0].get('health') == 1
-        except:
-            return False
-
-
-# 全局服务实例
-_neo4j_service: Optional[Neo4jService] = None
-
-
-def get_neo4j_service() -> Neo4jService:
-    """获取 Neo4j 服务实例"""
-    global _neo4j_service
+            with self.driver.session() as session:
+                # Count nodes
+                node_result = session.run("MATCH (n) RETURN count(n) as count")
+                node_count = node_result.single()["count"] if node_result.single() else 0
+                
+                # Count relationships
+                rel_result = session.run("MATCH ()-[r]->() RETURN count(r) as count")
+                rel_count = rel_result.single()["count"] if rel_result.single() else 0
+                
+                # Get labels
+                label_result = session.run("CALL db.labels()")
+                labels = [record["label"] for record in label_result]
+                
+                # Get relationship types
+                rel_type_result = session.run("CALL db.relationshipTypes()")
+                rel_types = [record["relationshipType"] for record in rel_type_result]
+                
+                return {
+                    "nodes": node_count,
+                    "relationships": rel_count,
+                    "labels": labels,
+                    "relationship_types": rel_types
+                }
+        except Exception as e:
+            logger.error(f"[ERROR] Neo4j stats failed: {e}")
+            return {"nodes": 0, "relationships": 0, "labels": [], "relationship_types": []}
     
-    if _neo4j_service is None:
-        _neo4j_service = Neo4jService()
+    def get_nodes(self, label: Optional[str] = None, limit: int = 50) -> List[Dict]:
+        """Get nodes from database"""
+        if label:
+            cypher = f"MATCH (n:`{label}`) RETURN n LIMIT $limit"
+        else:
+            cypher = "MATCH (n) RETURN n LIMIT $limit"
+        
+        results = self.query(cypher, {"limit": limit})
+        nodes = []
+        
+        for record in results:
+            node = record.get("n", {})
+            if hasattr(node, "items"):
+                node_data = dict(node.items())
+                nodes.append({
+                    "id": str(node.get("id", hash(str(node)))),
+                    "name": node.get("name", "Unknown"),
+                    "type": label or list(node.keys())[0] if node else "Unknown",
+                    "properties": node_data
+                })
+        
+        return nodes
     
-    return _neo4j_service
+    def get_edges(self, limit: int = 100) -> List[Dict]:
+        """Get relationships from database"""
+        cypher = "MATCH (a)-[r]->(b) RETURN a, r, b LIMIT $limit"
+        results = self.query(cypher, {"limit": limit})
+        
+        edges = []
+        for record in results:
+            rel = record.get("r", {})
+            start = record.get("a", {})
+            end = record.get("b", {})
+            
+            if rel and hasattr(rel, "items"):
+                edges.append({
+                    "id": str(hash(str(rel))),
+                    "source": str(start.get("id", hash(str(start)))),
+                    "target": str(end.get("id", hash(str(end)))),
+                    "type": rel.type if hasattr(rel, "type") else "RELATED",
+                    "properties": dict(rel.items()) if hasattr(rel, "items") else {}
+                })
+        
+        return edges
 
 
-def get_neo4j_session():
-    """获取 Neo4j 会话（用于依赖注入）"""
-    service = get_neo4j_service()
-    return service.get_session()
-
-
-def execute_neo4j_query(cypher: str, parameters: Optional[dict] = None) -> list:
-    """执行 Neo4j 查询（便捷函数）"""
-    service = get_neo4j_service()
-    return service.execute_query(cypher, parameters)
-
-
-def neo4j_health_check() -> bool:
-    """Neo4j 健康检查"""
-    service = get_neo4j_service()
-    return service.health_check()
+# Global instance
+neo4j_service = Neo4jService()
