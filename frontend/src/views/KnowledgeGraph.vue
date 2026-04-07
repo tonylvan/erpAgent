@@ -510,6 +510,7 @@ watch([containerWidth, containerHeight], () => {
 // Lifecycle
 onMounted(() => {
   initGraph()
+  loadGraphData()
   
   // Handle resize
   const handleResize = () => {
@@ -529,6 +530,35 @@ onMounted(() => {
     }
   })
 })
+
+// Load graph data from API
+const loadGraphData = async () => {
+  try {
+    const response = await fetch('http://localhost:8007/api/v1/graph/')
+    const data = await response.json()
+    
+    if (data.success && data.nodes) {
+      nodes.value = data.nodes.map((n: any) => ({
+        id: n.id,
+        name: n.name || n.properties?.name || 'Unknown',
+        type: n.type || 'Entity',
+        description: n.description || n.properties?.description || '',
+        properties: n.properties || n,
+        x: Math.random() * containerWidth.value,
+        y: Math.random() * containerHeight.value
+      }))
+      
+      edges.value = data.edges || []
+      
+      // Update graph
+      updateGraph()
+      
+      console.log(`Loaded ${nodes.value.length} nodes, ${edges.value.length} edges`)
+    }
+  } catch (error) {
+    console.error('Failed to load graph data:', error)
+  }
+}
 </script>
 
 <style scoped>
