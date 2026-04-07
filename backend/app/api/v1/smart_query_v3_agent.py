@@ -129,8 +129,8 @@ async def call_openclaw_agent(query: str, session_id: str, context: Optional[Dic
         # Build prompt
         system_prompt, user_prompt = build_agent_prompt(query, context)
         
-        # Create agent task via sessions_spawn
-        # Note: This is a mock implementation - actual implementation depends on OpenClaw API
+        # For now, use mock response (replace with actual OpenClaw call when available)
+        # In production, use: from openclaw import sessions_spawn
         agent_response = {
             "reasoning_steps": [
                 {
