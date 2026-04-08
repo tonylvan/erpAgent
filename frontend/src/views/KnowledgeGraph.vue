@@ -187,6 +187,7 @@
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ZoomIn, ZoomOut, Refresh, Grid, FullScreen, Close } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import * as d3 from 'd3'
 import GlobalNav from '../components/GlobalNav.vue'
 
