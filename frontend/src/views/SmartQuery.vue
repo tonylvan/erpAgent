@@ -454,12 +454,29 @@ function loadMessages() {
     if (stored) {
       const data = JSON.parse(stored)
       if (data.messages && Array.isArray(data.messages)) {
-        messages.value = data.messages
-        console.log('[SmartQuery] Restored', data.messages.length, 'messages from history')
+        // Validate and clean messages
+        const validMessages = data.messages.filter((msg: any) => {
+          // Check if msg.data.table is an array when it exists
+          if (msg.data && msg.data.table && !Array.isArray(msg.data.table)) {
+            console.warn('[SmartQuery] Filtering out message with invalid table data:', msg)
+            return false
+          }
+          return true
+        })
+        messages.value = validMessages
+        console.log('[SmartQuery] Restored', validMessages.length, 'messages from history')
+        
+        // Save cleaned data back to localStorage
+        if (validMessages.length !== data.messages.length) {
+          saveMessages()
+          console.log('[SmartQuery] Cleaned invalid messages from history')
+        }
       }
     }
   } catch (e) {
     console.warn('[SmartQuery] Failed to load messages:', e)
+    // Clear corrupted data
+    localStorage.removeItem(STORAGE_KEY)
   }
 }
 
