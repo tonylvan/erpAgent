@@ -215,18 +215,42 @@ Based on your query: **"{query}"**
         return agent_response
         
     except Exception as e:
-        # Fallback response
-        return {
-            "reasoning_steps": [{
-                "step": 1,
-                "action": "error",
-                "description": "Agent call failed",
-                "result": str(e)
-            }],
-            "answer": f"Query processed with fallback mode: {query}",
-            "data_type": "text",
-            "follow_up": ["Try rephrasing your question"]
-        }
+        # Fallback response - use v2 NL2Cypher
+        logger.warning(f"[Agent Query] Failed, falling back to v2: {e}")
+        
+        # Import v2 engine and query
+        from app.api.v1.smart_query_v2 import get_knowledge_engine
+        
+        try:
+            engine = get_knowledge_engine()
+            v2_response = await engine.query(query)
+            
+            return {
+                "reasoning_steps": [{
+                    "step": 1,
+                    "action": "fallback",
+                    "description": "Agent 调用失败，使用 Neo4j 直接查询",
+                    "result": "使用 v2 NL2Cypher 引擎"
+                }],
+                "answer": v2_response.get("answer", "查询完成"),
+                "data_type": v2_response.get("data_type", "text"),
+                "data": v2_response.get("data"),
+                "chart_config": v2_response.get("chart_config"),
+                "follow_up": v2_response.get("follow_up", ["查看详细数据", "导出报告"])
+            }
+        except Exception as v2_error:
+            logger.error(f"[Agent Query] Both agent and v2 failed: {v2_error}")
+            return {
+                "reasoning_steps": [{
+                    "step": 1,
+                    "action": "error",
+                    "description": "查询失败",
+                    "result": str(v2_error)
+                }],
+                "answer": f"⚠️ 查询失败：{str(e)}\n\n请尝试：\n1. 简化问题\n2. 使用更具体的关键词\n3. 联系管理员检查数据源",
+                "data_type": "text",
+                "follow_up": ["重新提问", "查看帮助文档"]
+            }
 
 
 @router.post("/query", response_model=AgentQueryResponse)
