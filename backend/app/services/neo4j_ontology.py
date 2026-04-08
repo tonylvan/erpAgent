@@ -84,23 +84,31 @@ def _ignore_labels() -> set[str]:
 
 
 def _node_id(n: Any) -> str:
+    """Get node ID using element_id (Neo4j 5.x compatible)"""
     eid = getattr(n, "element_id", None)
     if eid is not None:
         return str(eid)
     nid = getattr(n, "id", None)
     if nid is not None:
         return str(nid)
-    return str(id(n))
+    # Fallback: try to get id from properties
+    props = getattr(n, "properties", {})
+    if props and "id" in props:
+        return str(props["id"])
+    return "unknown_node"
 
 
 def _rel_id(r: Any) -> str:
+    """Get relationship ID using element_id (Neo4j 5.x compatible)"""
     eid = getattr(r, "element_id", None)
     if eid is not None:
         return str(eid)
     rid = getattr(r, "id", None)
     if rid is not None:
         return f"rel_{rid}"
-    return f"rel_{id(r)}"
+    # Fallback: use relationship type and hash
+    rel_type = getattr(r, "type", "unknown")
+    return f"rel_{rel_type}_{hash(str(r)) % 10000}"
 
 
 def _pick_name(props: dict[str, Any], labels: list[str]) -> str:
