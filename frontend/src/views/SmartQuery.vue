@@ -206,6 +206,21 @@ import { ElMessage } from 'element-plus'
 // Storage key for message history
 const STORAGE_KEY = 'smart-query-history'
 const MAX_HISTORY = 50 // Keep last 50 messages
+
+// API endpoint selection - Hybrid architecture
+const API_ENDPOINTS = {
+  fast: '/api/v1/smart-query-v2/query',  // NL2Cypher - Fast response
+  agent: '/api/v1/smart-query-v3-agent/query'  // OpenClaw Agent - Deep analysis
+}
+
+// Auto-select endpoint based on query complexity
+function selectEndpoint(query: string): 'fast' | 'agent' {
+  const complexKeywords = ['分析', '为什么', '原因', '趋势', '预测', '建议', '如何', '策略', '影响', '评估', '对比', '差异', '异常', '风险', '机会']
+  const hasComplexKeyword = complexKeywords.some(kw => query.toLowerCase().includes(kw.toLowerCase()))
+  
+  // Use agent for complex queries, fast for simple queries
+  return hasComplexKeyword ? 'agent' : 'fast'
+}
 import {
   Bell,
   ChatDotRound,
@@ -283,6 +298,11 @@ async function sendMessage() {
   const content = queryInput.value.trim()
   if (!content || loading.value) return
 
+  // Auto-select endpoint based on query complexity
+  const endpoint = selectEndpoint(content)
+  const endpointUrl = API_ENDPOINTS[endpoint]
+  const useAgent = endpoint === 'agent'
+
   // Add user message
   messages.value.push({
     id: Date.now(),
@@ -305,16 +325,17 @@ async function sendMessage() {
   try {
     // Create AbortController for timeout
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
+    const timeoutId = setTimeout(() => controller.abort(), useAgent ? 60000 : 30000) // Agent gets more time
 
-    // Call backend API (non-blocking, user can navigate away)
-    const response = await fetch('/api/v1/smart-query-v2/query', {
+    // Call backend API (hybrid architecture)
+    const response = await fetch(endpointUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        query: content
+        query: content,
+        with_reasoning: useAgent // Only use reasoning for agent queries
       }),
       signal: controller.signal
     })
@@ -333,6 +354,7 @@ async function sendMessage() {
       role: 'assistant',
       content: data.answer || '查询完成',
       timestamp: Date.now(),
+      reasoning: data.reasoning_process, // Agent reasoning steps
       data: data.chart_config ? { chart: data.chart_config } : 
             data.data_type === 'table' ? { table: data.data } : null,
       suggestedQuestions: data.follow_up || [
@@ -343,7 +365,7 @@ async function sendMessage() {
     })
     
     // Success feedback
-    ElMessage.success('查询完成')
+    ElMessage.success(useAgent ? '深度分析完成' : '查询完成')
   } catch (error: any) {
     // Only show error if still on this page
     if (error.name === 'AbortError') {
