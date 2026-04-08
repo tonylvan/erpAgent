@@ -275,7 +275,7 @@ function navigateTo(page: 'alert' | 'graph') {
   if (page === 'alert') {
     router.push('/')
   } else if (page === 'graph') {
-    router.push('/graph')
+    router.push('/knowledge-graph')
   }
 }
 
