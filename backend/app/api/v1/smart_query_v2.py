@@ -107,14 +107,65 @@ class Neo4jKnowledgeEngine:
             password = os.getenv("NEO4J_PASSWORD")
             
             if not password:
-                print("[WARN] Neo4j 密码未配置，使用模拟数据模式")
+                print("[WARN] Neo4j 密码未配置，使用 OpenClaw Agent")
                 return
             
             self.driver = GraphDatabase.driver(uri, auth=(user, password))
             print(f"[OK] Neo4j 已连接：{uri}")
         except Exception as e:
-            print(f"[WARN] Neo4j 连接失败：{e}，使用模拟数据模式")
+            print(f"[WARN] Neo4j 连接失败：{e}，使用 OpenClaw Agent")
             self.driver = None
+    
+    async def _query_openclaw_agent(self, question: str) -> Optional[dict]:
+        """使用 OpenClaw Agent 进行深度分析（当 Neo4j 查询失败时）"""
+        try:
+            import subprocess
+            import json
+            
+            logger.info(f"[OpenClaw Agent] Querying agent with: {question}")
+            
+            # 调用 OpenClaw CLI
+            cmd = [
+                "openclaw",
+                "message",
+                "--target", "self",
+                f"请分析 ERP 数据查询：{question}。请基于企业数据知识进行深度分析并提供业务洞察。"
+            ]
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            if result.returncode == 0 and result.stdout:
+                logger.info(f"[OpenClaw Agent] Got response")
+                
+                # 解析 Agent 响应
+                agent_answer = result.stdout.strip()
+                
+                return {
+                    "answer": f"🤖 **OpenClaw Agent 深度分析**\n\n{agent_answer}",
+                    "data_type": "text",
+                    "data": None,
+                    "chart_config": None,
+                    "follow_up": [
+                        "查看详细数据",
+                        "生成可视化图表",
+                        "导出分析报告"
+                    ]
+                }
+            else:
+                logger.warning(f"[OpenClaw Agent] Query failed: {result.stderr}")
+                return None
+                
+        except subprocess.TimeoutExpired:
+            logger.error("[OpenClaw Agent] Query timeout")
+            return None
+        except Exception as e:
+            logger.error(f"[OpenClaw Agent] Error: {e}")
+            return None
     
     def _parse_time_range(self, question: str) -> tuple:
         """智能解析时间范围"""
@@ -173,8 +224,18 @@ class Neo4jKnowledgeEngine:
                 logger.info("[SmartQuery] No results, trying fallback query...")
                 result = await self._fallback_query(question)
                 logger.info(f"[SmartQuery] Fallback result: {len(result)} rows")
+                
+                # 如果 fallback 还是空，使用 OpenClaw Agent 深度分析
+                if not result:
+                    logger.info("[SmartQuery] Fallback failed, using OpenClaw Agent...")
+                    agent_response = await self._query_openclaw_agent(question)
+                    if agent_response:
+                        return agent_response
         else:
-            logger.warning("[SmartQuery] No driver, using mock data")
+            logger.warning("[SmartQuery] No driver, using OpenClaw Agent")
+            agent_response = await self._query_openclaw_agent(question)
+            if agent_response:
+                return agent_response
             result = await self._mock_data(question)
         
         # 3. 生成回答（增强版）
