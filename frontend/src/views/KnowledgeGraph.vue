@@ -645,8 +645,90 @@ const resetHighlight = () => {
 
 // Scenario handlers
 const executeScenario = () => {
-  console.log('Execute scenario:', scenarioText.value)
-  // TODO: Implement scenario execution logic
+  const text = scenarioText.value.toLowerCase()
+  console.log('[KnowledgeGraph] Execute scenario:', text)
+  
+  // Smart scenario detection based on keywords
+  if (text.includes('p2p') || text.includes('采购') || text.includes('付款')) {
+    console.log('[KnowledgeGraph] Detected P2P scenario')
+    highlightScenarioNodes('p2p')
+  } else if (text.includes('o2c') || text.includes('订单') || text.includes('收款') || text.includes('销售')) {
+    console.log('[KnowledgeGraph] Detected O2C scenario')
+    highlightScenarioNodes('o2c')
+  } else if (text.includes('财务') || text.includes('发票') || text.includes('应收') || text.includes('应付')) {
+    console.log('[KnowledgeGraph] Detected Finance scenario')
+    highlightScenarioNodes('finance')
+  } else if (text.includes('风险') || text.includes('预警') || text.includes('异常')) {
+    console.log('[KnowledgeGraph] Detected Risk scenario')
+    highlightScenarioNodes('risk')
+  } else {
+    // Try to extract node types from text
+    const nodeTypes: string[] = []
+    if (text.includes('供应商')) nodeTypes.push('Supplier')
+    if (text.includes('客户')) nodeTypes.push('Customer')
+    if (text.includes('发票')) nodeTypes.push('Invoice')
+    if (text.includes('付款')) nodeTypes.push('Payment')
+    if (text.includes('采购')) nodeTypes.push('PurchaseOrder')
+    if (text.includes('销售')) nodeTypes.push('Sale')
+    
+    if (nodeTypes.length > 0) {
+      console.log('[KnowledgeGraph] Custom scenario with types:', nodeTypes)
+      highlightNodesByTypes(nodeTypes)
+    } else {
+      ElMessage.warning('未识别到场景类型，请使用 P2P、O2C、采购、销售等关键词')
+    }
+  }
+}
+
+// Highlight nodes by multiple types
+const highlightNodesByTypes = (types: string[]) => {
+  if (!g) return
+  
+  console.log('[KnowledgeGraph] Highlighting types:', types)
+  
+  // Reset all nodes
+  g.selectAll('.node-group circle')
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 2)
+    .attr('opacity', 0.2)
+  
+  g.selectAll('.node-group text')
+    .attr('opacity', 0.2)
+  
+  g.selectAll('line')
+    .attr('opacity', 0.1)
+  
+  // Highlight matching nodes
+  g.selectAll('.node-group')
+    .filter((d: any) => types.includes(d.type))
+    .select('circle')
+    .attr('stroke', '#ff4d4f')
+    .attr('stroke-width', 4)
+    .attr('opacity', 1)
+  
+  g.selectAll('.node-group')
+    .filter((d: any) => types.includes(d.type))
+    .select('text')
+    .attr('opacity', 1)
+    .attr('font-weight', 'bold')
+  
+  // Center view
+  const matchingNodes = nodes.value.filter(n => types.includes(n.type))
+  if (matchingNodes.length > 0) {
+    const avgX = matchingNodes.reduce((sum, n) => sum + (n.x || 0), 0) / matchingNodes.length
+    const avgY = matchingNodes.reduce((sum, n) => sum + (n.y || 0), 0) / matchingNodes.length
+    
+    const transform = d3.zoomIdentity
+      .translate(containerWidth.value / 2, containerHeight.value / 2)
+      .scale(1.2)
+      .translate(-avgX, -avgY)
+    
+    svg.transition().duration(750).call(zoom.transform as any, transform)
+    
+    ElMessage.success(`已高亮 ${matchingNodes.length} 个节点`)
+  } else {
+    ElMessage.warning('未找到匹配的节点')
+  }
 }
 
 const loadScenario = (scenario: any) => {
