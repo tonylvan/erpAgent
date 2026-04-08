@@ -214,14 +214,16 @@ const containerHeight = ref(600)
 const showGrid = ref(false)
 const zoomLevel = ref(1)
 
-// 本体类型
+// 本体类型 - 根据 Neo4j 实际数据调整
 const ontologyTypes = reactive([
-  { name: 'Invoice', label: '发票', icon: '📄', count: 113 },
-  { name: 'Payment', label: '付款', icon: '💰', count: 110 },
-  { name: 'PurchaseOrder', label: '采购单', icon: '📋', count: 34 },
-  { name: 'Supplier', label: '供应商', icon: '🏢', count: 52 },
-  { name: 'Customer', label: '客户', icon: '👥', count: 12 },
-  { name: 'SalesOrder', label: '销售单', icon: '🛒', count: 20 },
+  { name: 'Sale', label: '销售', icon: '💰', count: 15 },
+  { name: 'PurchaseOrder', label: '采购单', icon: '📋', count: 12 },
+  { name: 'Event', label: '事件', icon: '📅', count: 9 },
+  { name: 'Product', label: '产品', icon: '📦', count: 6 },
+  { name: 'Payment', label: '付款', icon: '💳', count: 3 },
+  { name: 'Order', label: '订单', icon: '📝', count: 2 },
+  { name: 'Customer', label: '客户', icon: '👥', count: 2 },
+  { name: 'Time', label: '时间', icon: '⏰', count: 1 },
 ])
 
 // 筛选器
@@ -247,14 +249,16 @@ const results = reactive([
   { icon: '📈', title: '效率提升', desc: '流程优化可提升 15% 效率' },
 ])
 
-// Node color mapping
+// Node color mapping - 匹配 Neo4j 实际类型
 const nodeColors: Record<string, string> = {
-  Invoice: '#667eea',
-  Payment: '#52c41a',
-  PurchaseOrder: '#fa8c16',
-  Supplier: '#1890ff',
-  Customer: '#722ed1',
-  SalesOrder: '#eb2f96',
+  Sale: '#fa8c16',
+  PurchaseOrder: '#1890ff',
+  Event: '#722ed1',
+  Product: '#52c41a',
+  Payment: '#13c2c2',
+  Order: '#eb2f96',
+  Customer: '#667eea',
+  Time: '#bfbfbf',
 }
 
 // Initialize D3.js force-directed graph
