@@ -804,21 +804,120 @@ const selectResult = (result: any) => {
   console.log('[KnowledgeGraph] Selected result:', result.title)
   
   // Parse result to find related nodes
-  // For demo, we highlight nodes mentioned in the result
-  if (result.title.includes('P2P')) {
+  if (result.title.includes('P2P') || result.title.includes('流程')) {
     highlightScenarioNodes('p2p')
-  } else if (result.title.includes('异常')) {
-    // Highlight nodes with anomalies (simulated)
-    highlightRandomNodes(3, '#ff4d4f')
-  } else if (result.title.includes('效率')) {
-    // Highlight a random subset
-    highlightRandomNodes(5, '#52c41a')
+    ElMessage.success('已高亮 P2P 流程相关节点')
+  } else if (result.title.includes('异常') || result.title.includes('问题')) {
+    // Highlight nodes with issues - find actual problem nodes
+    highlightProblemNodes()
+  } else if (result.title.includes('效率') || result.title.includes('优化')) {
+    // Highlight optimization opportunities
+    highlightOptimizationNodes()
   } else {
     resetHighlight()
+    ElMessage.info('未识别到相关节点')
   }
 }
 
-// Highlight random nodes for demo
+// Highlight problem/anomaly nodes
+const highlightProblemNodes = () => {
+  if (!g) return
+  
+  console.log('[KnowledgeGraph] Highlighting problem nodes')
+  
+  // Reset all
+  resetHighlight()
+  g.selectAll('.node-group circle').attr('opacity', 0.2)
+  g.selectAll('.node-group text').attr('opacity', 0.2)
+  g.selectAll('line').attr('opacity', 0.1)
+  
+  // Find Event nodes (alerts/issues)
+  const problemNodes = nodes.value.filter(n => n.type === 'Event')
+  
+  if (problemNodes.length === 0) {
+    ElMessage.warning('未找到问题节点')
+    return
+  }
+  
+  // Highlight problem nodes
+  problemNodes.forEach(node => {
+    g.selectAll('.node-group')
+      .filter((d: any) => d.id === node.id)
+      .select('circle')
+      .attr('stroke', '#ff4d4f')
+      .attr('stroke-width', 4)
+      .attr('opacity', 1)
+    
+    g.selectAll('.node-group')
+      .filter((d: any) => d.id === node.id)
+      .select('text')
+      .attr('opacity', 1)
+      .attr('font-weight', 'bold')
+  })
+  
+  // Center view on problem nodes
+  centerOnNodes(problemNodes)
+  ElMessage.success(`已高亮 ${problemNodes.length} 个问题节点`)
+}
+
+// Highlight optimization nodes
+const highlightOptimizationNodes = () => {
+  if (!g) return
+  
+  console.log('[KnowledgeGraph] Highlighting optimization nodes')
+  
+  // Reset all
+  resetHighlight()
+  g.selectAll('.node-group circle').attr('opacity', 0.2)
+  g.selectAll('.node-group text').attr('opacity', 0.2)
+  g.selectAll('line').attr('opacity', 0.1)
+  
+  // Highlight PurchaseOrder and Payment nodes (optimization opportunities)
+  const optimizationTypes = ['PurchaseOrder', 'Payment']
+  const optimizationNodes = nodes.value.filter(n => optimizationTypes.includes(n.type))
+  
+  if (optimizationNodes.length === 0) {
+    ElMessage.warning('未找到可优化节点')
+    return
+  }
+  
+  // Highlight optimization nodes
+  optimizationNodes.forEach(node => {
+    g.selectAll('.node-group')
+      .filter((d: any) => d.id === node.id)
+      .select('circle')
+      .attr('stroke', '#52c41a')
+      .attr('stroke-width', 4)
+      .attr('opacity', 1)
+    
+    g.selectAll('.node-group')
+      .filter((d: any) => d.id === node.id)
+      .select('text')
+      .attr('opacity', 1)
+      .attr('font-weight', 'bold')
+  })
+  
+  // Center view
+  centerOnNodes(optimizationNodes)
+  ElMessage.success(`已高亮 ${optimizationNodes.length} 个可优化节点`)
+}
+
+// Center view on specific nodes
+const centerOnNodes = (targetNodes: any[]) => {
+  if (!svg || targetNodes.length === 0) return
+  
+  const avgX = targetNodes.reduce((sum, n) => sum + (n.x || 0), 0) / targetNodes.length
+  const avgY = targetNodes.reduce((sum, n) => sum + (n.y || 0), 0) / targetNodes.length
+  
+  const transform = d3.zoomIdentity
+    .translate(containerWidth.value / 2, containerHeight.value / 2)
+    .scale(1.2)
+    .translate(-avgX, -avgY)
+  
+  svg.transition().duration(750).call(zoom.transform as any, transform)
+}
+
+// Highlight random nodes for demo (deprecated)
 const highlightRandomNodes = (count: number, color: string) => {
   if (!g) return
   
