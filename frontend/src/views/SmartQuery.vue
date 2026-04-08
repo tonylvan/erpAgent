@@ -215,11 +215,22 @@ const API_ENDPOINTS = {
 
 // Auto-select endpoint based on query complexity
 function selectEndpoint(query: string): 'fast' | 'agent' {
-  const complexKeywords = ['分析', '为什么', '原因', '趋势', '预测', '建议', '如何', '策略', '影响', '评估', '对比', '差异', '异常', '风险', '机会']
-  const hasComplexKeyword = complexKeywords.some(kw => query.toLowerCase().includes(kw.toLowerCase()))
+  const complexKeywords = ['分析', '为什么', '原因', '趋势', '预测', '建议', '如何', '策略', '影响', '评估', '对比', '差异', '异常', '风险', '机会', '深度', '洞察', '归因', '诊断']
+  const simpleKeywords = ['多少', '几个', '哪些', '列表', '排行', 'top', 'Top', '统计', '汇总', '合计', '总数', '平均']
   
-  // Use agent for complex queries, fast for simple queries
-  return hasComplexKeyword ? 'agent' : 'fast'
+  const queryLower = query.toLowerCase()
+  const hasComplexKeyword = complexKeywords.some(kw => queryLower.includes(kw.toLowerCase()))
+  const hasSimpleKeyword = simpleKeywords.some(kw => queryLower.includes(kw.toLowerCase()))
+  
+  // Complex queries use agent, simple queries use NL2Cypher
+  // If both exist, prioritize complex (agent)
+  if (hasComplexKeyword) {
+    console.log('[SmartQuery] Complex query detected, using Agent:', query)
+    return 'agent'
+  }
+  
+  console.log('[SmartQuery] Simple query detected, using NL2Cypher:', query)
+  return 'fast'
 }
 import {
   Bell,
