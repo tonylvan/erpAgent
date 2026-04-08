@@ -127,6 +127,16 @@
                       <el-button size="small" text :icon="Check" @click="handleFeedback(msg.id, 'up')" />
                       <el-button size="small" text :icon="Close" @click="handleFeedback(msg.id, 'down')" />
                       <el-button size="small" text :icon="CopyDocument" @click="copyMessage(msg.content)" />
+                      <!-- 重试按钮（仅错误消息显示） -->
+                      <el-button 
+                        v-if="msg.isError && msg.retryQuery" 
+                        size="small" 
+                        type="primary" 
+                        :icon="RefreshRight"
+                        @click="retryMessage(msg.retryQuery)"
+                      >
+                        重试
+                      </el-button>
                     </div>
                   </div>
                 </div>
@@ -199,7 +209,8 @@ import {
   Close,
   CopyDocument,
   Promotion,
-  InfoFilled
+  InfoFilled,
+  RefreshRight
 } from '@element-plus/icons-vue'
 import GlobalNav from '../components/GlobalNav.vue'
 
@@ -320,6 +331,9 @@ async function sendMessage() {
         '导出这个报告'
       ]
     })
+    
+    // Success feedback
+    ElMessage.success('查询完成')
   } catch (error: any) {
     // Only show error if still on this page
     if (error.name === 'AbortError') {
@@ -328,13 +342,14 @@ async function sendMessage() {
       ElMessage.error('查询失败，请稍后重试')
     }
     
-    // Add error message to history
+    // Add error message with retry option
     messages.value.push({
       id: Date.now() + 1,
       role: 'assistant',
-      content: '抱歉，查询过程中出现错误。请稍后重试。',
+      content: '抱歉，查询过程中出现错误。请点击重试按钮重新发送问题。',
       timestamp: Date.now(),
-      isError: true
+      isError: true,
+      retryQuery: content // Store the original query for retry
     })
   } finally {
     loading.value = false
@@ -346,6 +361,14 @@ async function sendMessage() {
 
 function sendQuickQuestion(question: string) {
   queryInput.value = question
+  sendMessage()
+}
+
+function retryMessage(retryQuery: string) {
+  // Remove the error message
+  messages.value = messages.value.filter(m => !m.isError)
+  // Retry the query
+  queryInput.value = retryQuery
   sendMessage()
 }
 

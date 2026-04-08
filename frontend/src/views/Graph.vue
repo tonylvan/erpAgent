@@ -251,7 +251,68 @@ function navigateTo(page: string) {
 // 选择类型
 function selectType(type: any) {
   selectedType.value = type.name
-  // 过滤图谱显示
+  highlightNodesByType(type.name)
+}
+
+// Highlight nodes by type
+function highlightNodesByType(nodeType: string) {
+  if (!chartInstance) {
+    console.warn('[Graph] No chart instance')
+    return
+  }
+  
+  const option = chartInstance.getOption() as any
+  const series = option.series[0]
+  
+  if (!nodeType) {
+    // Reset - show all nodes normally
+    series.data.forEach((node: any) => {
+      node.itemStyle = node.itemStyle || {}
+      node.itemStyle.opacity = 1
+      node.label = node.label || {}
+      node.label.show = true
+    })
+    series.edges.forEach((edge: any) => {
+      edge.lineStyle = edge.lineStyle || {}
+      edge.lineStyle.opacity = 0.5
+    })
+  } else {
+    // Highlight matching nodes
+    series.data.forEach((node: any) => {
+      const nodeData = graphNodes.value.find(n => n.id === node.id)
+      const matches = nodeData && nodeData.type === nodeType
+      
+      node.itemStyle = node.itemStyle || {}
+      node.itemStyle.opacity = matches ? 1 : 0.2
+      
+      // Add border for highlighted nodes
+      if (matches) {
+        node.itemStyle.borderColor = '#f56c6c'
+        node.itemStyle.borderWidth = 3
+        node.symbolSize = Math.max(30, node.symbolSize)
+      } else {
+        node.itemStyle.borderColor = null
+        node.itemStyle.borderWidth = 0
+      }
+      
+      node.label = node.label || {}
+      node.label.show = matches
+    })
+    
+    // Highlight edges connected to matching nodes
+    const matchingNodeIds = new Set(
+      graphNodes.value.filter(n => n.type === nodeType).map(n => n.id)
+    )
+    
+    series.edges.forEach((edge: any) => {
+      const isConnected = matchingNodeIds.has(edge.source) || matchingNodeIds.has(edge.target)
+      edge.lineStyle = edge.lineStyle || {}
+      edge.lineStyle.opacity = isConnected ? 0.8 : 0.1
+    })
+  }
+  
+  chartInstance.setOption(option)
+  console.log('[Graph] Highlighted nodes of type:', nodeType)
 }
 
 // 切换本体面板
@@ -262,6 +323,8 @@ function toggleOntology() {
 // 重置筛选
 function resetFilters() {
   selectedFilters.value = []
+  selectedType.value = ''
+  highlightNodesByType('') // Reset graph highlight
 }
 
 // 画布操作
@@ -275,6 +338,13 @@ function zoomOut() {
 
 function resetView() {
   // 重置视图
+  selectedType.value = ''
+  highlightNodesByType('')
+  if (chartInstance) {
+    chartInstance.dispatchAction({
+      type: 'restore'
+    })
+  }
 }
 
 function toggleGrid() {
