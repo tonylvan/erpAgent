@@ -88,13 +88,8 @@
                     
                     <!-- 数据可视化 -->
                     <div v-if="msg.data" class="message-data">
-                      <div v-if="msg.data.chart" class="chart-container" ref="chartContainer">
-                        <v-chart 
-                          v-if="chartInitialized" 
-                          :option="msg.data.chart" 
-                          :autoresize="true"
-                          manual-start
-                        />
+                      <div v-if="msg.data.chart" class="chart-container">
+                        <v-chart :option="msg.data.chart" :autoresize="true" style="height: 300px;" />
                       </div>
                       <el-table v-if="msg.data.table" :data="msg.data.table" stripe size="small">
                         <el-table-column 
@@ -211,9 +206,6 @@ import { ElMessage } from 'element-plus'
 // Storage key for message history
 const STORAGE_KEY = 'smart-query-history'
 const MAX_HISTORY = 50 // Keep last 50 messages
-
-// Chart initialization state
-const chartInitialized = ref(false)
 
 // API endpoint selection - Hybrid architecture
 const API_ENDPOINTS = {
@@ -472,9 +464,8 @@ onMounted(() => {
   document.title = '智能问数 Pro - GSD 平台'
   loadMessages()
   
-  // Initialize chart state after DOM is ready
+  // Auto-scroll to bottom after restoring messages
   nextTick(() => {
-    chartInitialized.value = true
     scrollToBottom()
   })
 })
