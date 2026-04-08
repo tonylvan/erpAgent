@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="knowledge-graph">
     <!-- Global Navigation -->
     <GlobalNav />
@@ -60,18 +60,48 @@
       <div class="canvas-section">
         <!-- 工具栏 -->
         <div class="canvas-toolbar">
-          <el-button-group>
-            <el-button :icon="ZoomIn" @click="zoomIn" title="放大" />
-            <el-button :icon="ZoomOut" @click="zoomOut" title="缩小" />
-            <el-button :icon="Refresh" @click="resetView" title="重置视图" />
-            <el-divider direction="vertical" />
-            <el-button :icon="Grid" @click="toggleGrid" title="网格" />
-            <el-button :icon="FullScreen" @click="toggleFullscreen" title="全屏" />
-          </el-button-group>
+          <div class="toolbar-left">
+            <el-button-group>
+              <el-button :icon="ZoomIn" @click="zoomIn" title="放大" />
+              <el-button :icon="ZoomOut" @click="zoomOut" title="缩小" />
+              <el-button :icon="Refresh" @click="resetView" title="重置视图" />
+              <el-divider direction="vertical" />
+              <el-button :icon="Grid" @click="toggleGrid" title="网格" />
+              <el-button :icon="FullScreen" @click="toggleFullscreen" title="全屏" />
+            </el-button-group>
+          </div>
+          
+          <div class="toolbar-center">
+            <span class="node-count-label">节点数量:</span>
+            <el-button-group class="node-count-buttons">
+              <el-button 
+                size="small" 
+                :type="nodeLimit === 100 ? 'primary' : 'default'"
+                @click="setNodeLimit(100)"
+              >100</el-button>
+              <el-button 
+                size="small" 
+                :type="nodeLimit === 200 ? 'primary' : 'default'"
+                @click="setNodeLimit(200)"
+              >200</el-button>
+              <el-button 
+                size="small" 
+                :type="nodeLimit === 300 ? 'primary' : 'default'"
+                @click="setNodeLimit(300)"
+              >300</el-button>
+              <el-button 
+                size="small" 
+                :type="nodeLimit === 'all' ? 'primary' : 'default'"
+                @click="setNodeLimit('all')"
+              >ALL</el-button>
+            </el-button-group>
+          </div>
 
-          <div class="canvas-info">
-            <span>节点:{{ nodes.length }}</span>
-            <span>关系:{{ edges.length }}</span>
+          <div class="toolbar-right">
+            <div class="canvas-info">
+              <span>节点:{{ nodes.length }}</span>
+              <span>关系:{{ edges.length }}</span>
+            </div>
           </div>
         </div>
 
@@ -1261,6 +1291,32 @@ const loadGraphData = async () => {
   padding: 12px 16px;
   border-bottom: 1px solid #e0e0e0;
   background: #f8f9fa;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+}
+
+.toolbar-center {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+}
+
+.node-count-label {
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.node-count-buttons {
+  margin-left: 8px;
 }
 
 .canvas-info {

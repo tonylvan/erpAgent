@@ -43,7 +43,7 @@ class GraphData(BaseModel):
 @router.get("/", response_model=GraphData)
 def get_graph_data(
     entity_type: Optional[str] = None,
-    limit: int = 200,  # Increase default limit from 50 to 200
+    limit: int = 100,  # Default limit reduced to 100 for better UX
     db: Session = Depends(get_db)
 ):
     """
@@ -53,45 +53,38 @@ def get_graph_data(
     """
     try:
         if neo4j_service.connected:
-            # Get all important node types - increase limits
+            # Get all important node types - scale based on limit
             all_node_ids = set()
+            
+            # Calculate per-type limit based on total limit
+            per_type_limit = max(10, limit // 12)  # Distribute across 12 types
             
             # Get nodes by type to ensure we have all types represented
             type_nodes = {}
-            for label in ['Invoice', 'Supplier', 'PurchaseOrder', 'Sale', 'Customer', 'Product', 'Payment', 'Order', 'POLine', 'PriceList']:
-                nodes = neo4j_service.get_nodes(label=label, limit=30)  # Increase from 10 to 30
+            for label in ['POLine', 'Invoice', 'Payment', 'PriceList', 'Supplier', 'PurchaseOrder', 'Sale', 'Order', 'Customer', 'Event', 'Product', 'Time']:
+                nodes = neo4j_service.get_nodes(label=label, limit=per_type_limit)
                 type_nodes[label] = nodes
                 for node in nodes:
                     all_node_ids.add(node['id'])
             
-            # Also include Event nodes (synced from alerts)
-            event_nodes = neo4j_service.get_nodes(label='Event', limit=30)  # Increase from 20 to 30
-            for event in event_nodes:
-                all_node_ids.add(event['id'])
+            # Limit total nodes to requested limit
+            node_id_list = list(all_node_ids)[:limit]
+            nodes = neo4j_service.get_nodes_by_ids(node_id_list)
             
-            # Get edges - increase limit
-            edges = neo4j_service.get_edges(limit=limit*3)  # Increase edge limit
+            # Get edges - scale based on limit
+            edges = neo4j_service.get_edges(limit=limit*2)
             
             # Add nodes from edges
             for edge in edges:
-                all_node_ids.add(edge['source'])
-                all_node_ids.add(edge['target'])
-            
-            # Get all nodes by IDs (no artificial limit)
-            node_id_list = list(all_node_ids)
-            nodes = neo4j_service.get_nodes_by_ids(node_id_list)
-            
-            # Also add Event nodes directly if not in the list
-            existing_ids = set(n['id'] for n in nodes)
-            for event in event_nodes:
-                if event['id'] not in existing_ids:
-                    nodes.append(event)
+                if len(all_node_ids) < limit:  # Only add if within limit
+                    all_node_ids.add(edge['source'])
+                    all_node_ids.add(edge['target'])
             
             # Filter edges to only include those with both nodes present
             node_id_set = set(n['id'] for n in nodes)
-            valid_edges = [e for e in edges if e['source'] in node_id_set and e['target'] in node_id_set]
+            valid_edges = [e for e in edges if e['source'] in node_id_set and e['target'] in node_id_set][:limit]  # Limit edges too
             
-            message = f"Real Neo4j data - {len(nodes)} nodes, {len(valid_edges)} edges ({len(event_nodes)} events)"
+            message = f"Real Neo4j data - {len(nodes)} nodes, {len(valid_edges)} edges"
             
             return GraphData(
                 success=True,
