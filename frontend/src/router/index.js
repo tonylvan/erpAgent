@@ -39,6 +39,14 @@ const routes = [
     }
   },
   {
+    path: '/ticket-center',
+    name: 'TicketCenterAlias',
+    component: TicketCenter,
+    meta: {
+      title: 'Ticket Center - GSD Platform'
+    }
+  },
+  {
     path: '/tickets/:id',
     name: 'TicketDetail',
     component: TicketDetail,

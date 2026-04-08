@@ -310,8 +310,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import GlobalNav from '@/components/GlobalNav.vue'
-import { api } from '@/utils/api'
+import GlobalNav from '../components/GlobalNav.vue'
+import { api } from '../utils/api'
 
 const route = useRoute()
 const router = useRouter()
@@ -420,7 +420,7 @@ const isOverdue = computed(() => {
 // 加载工单详情
 const loadTicket = async () => {
   try {
-    const response = await api.get(`/api/v1/tickets/${route.params.id}`)
+    const response = await api.get(`/tickets/${route.params.id}`)
     ticket.value = response.data
     await loadComments()
     await loadWorkflowLogs()
@@ -432,7 +432,7 @@ const loadTicket = async () => {
 // 加载评论
 const loadComments = async () => {
   try {
-    const response = await api.get(`/api/v1/tickets/${route.params.id}/comments`)
+    const response = await api.get(`/tickets/${route.params.id}/comments`)
     comments.value = response.data.items || []
   } catch (error) {
     console.error('加载评论失败:', error)

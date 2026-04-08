@@ -159,7 +159,7 @@ async function executeQuery() {
     }
 
     // 调用后端智能问数 API
-    const response = await fetch('http://localhost:8005/api/v1/smart-query-v40/query', {
+    const response = await fetch('/api/v1/smart-query-v2/query', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -242,7 +242,7 @@ async function login() {
   }
 
   try {
-    const response = await fetch('http://localhost:8005/api/v1/auth/login', {
+    const response = await fetch('/api/v1/auth/login', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

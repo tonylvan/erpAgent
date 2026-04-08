@@ -2,8 +2,8 @@ import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
 import path from "path";
 
-/** 与 `uvicorn ... --port` 一致（使用 8005 端口） */
-const API_TARGET = process.env.VITE_PROXY_API ?? "http://127.0.0.1:8005";
+/** 与 `uvicorn ... --port` 一致（使用 8007 端口） */
+const API_TARGET = process.env.VITE_PROXY_API ?? "http://127.0.0.1:8007";
 
 export default defineConfig({
   plugins: [vue()],

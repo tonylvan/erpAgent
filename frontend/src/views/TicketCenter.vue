@@ -119,7 +119,7 @@ const getStatusIcon = (status: string) => {
 
 const fetchStats = async () => {
   try {
-    const response = await fetch('http://localhost:8006/api/v1/tickets/stats')
+    const response = await fetch('/api/v1/tickets/stats')
     const data = await response.json()
     console.log('Ticket stats:', data)
     
@@ -166,7 +166,7 @@ const fetchTickets = async () => {
     if (filterCategory.value) params.append('category', filterCategory.value)
     if (searchKeyword.value) params.append('keyword', searchKeyword.value)
     
-    const response = await fetch(`http://localhost:8006/api/v1/tickets/?${params}`)
+    const response = await fetch(`/api/v1/tickets/?${params}`)
     tickets.value = await response.json()
     total.value = tickets.value.length
   } catch (error) {
@@ -197,7 +197,7 @@ const openViewDialog = (ticket: any) => {
 
 const submitForm = async () => {
   try {
-    const response = await fetch('http://localhost:8006/api/v1/tickets/', {
+    const response = await fetch('/api/v1/tickets/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(form.value)
@@ -219,7 +219,7 @@ const submitForm = async () => {
 
 const assignTicket = async (ticketId: number, assignTo: string) => {
   try {
-    const response = await fetch(`http://localhost:8006/api/v1/tickets/${ticketId}/assign`, {
+    const response = await fetch(`/api/v1/tickets/${ticketId}/assign`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assigned_to: assignTo })
@@ -239,7 +239,7 @@ const assignTicket = async (ticketId: number, assignTo: string) => {
 
 const closeTicket = async (ticketId: number) => {
   try {
-    const response = await fetch(`http://localhost:8006/api/v1/tickets/${ticketId}/close`, {
+    const response = await fetch(`/api/v1/tickets/${ticketId}/close`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resolved_by: 'current_user' })
@@ -302,7 +302,7 @@ onMounted(() => {
       <!-- Statistics Cards -->
       <section class="stats-section">
       <div class="stats-grid">
-        <el-card class="stat-card stat-total glass">
+        <el-card class="stat-card stat-total glass" @click="filterStatus = ''; fetchTickets()">
           <div class="stat-header">
             <div class="stat-icon-wrap icon-total">
               <el-icon :size="32"><DataAnalysis /></el-icon>
@@ -313,11 +313,11 @@ onMounted(() => {
             <div class="stat-label">总工单数</div>
           </div>
           <div class="stat-progress">
-            <el-progress :percentage="100" :show-text="false" stroke-width="4" color="#667eea" />
+            <el-progress :percentage="100" :show-text="false" :stroke-width="4" color="#667eea" />
           </div>
         </el-card>
 
-        <el-card class="stat-card stat-open glass">
+        <el-card class="stat-card stat-open glass" @click="filterStatus = 'OPEN'; fetchTickets()">
           <div class="stat-header">
             <div class="stat-icon-wrap icon-open">
               <el-icon :size="32"><Clock /></el-icon>
@@ -331,13 +331,13 @@ onMounted(() => {
             <el-progress 
               :percentage="stats.total ? Math.round((stats.open / stats.total) * 100) : 0" 
               :show-text="false" 
-              stroke-width="4" 
+              :stroke-width="4" 
               color="#f093fb" 
             />
           </div>
         </el-card>
 
-        <el-card class="stat-card stat-in-progress glass">
+        <el-card class="stat-card stat-in-progress glass" @click="filterStatus = 'IN_PROGRESS'; fetchTickets()">
           <div class="stat-header">
             <div class="stat-icon-wrap icon-progress">
               <el-icon :size="32"><Edit /></el-icon>
@@ -351,13 +351,13 @@ onMounted(() => {
             <el-progress 
               :percentage="stats.total ? Math.round((stats.by_status?.IN_PROGRESS / stats.total) * 100) : 0" 
               :show-text="false" 
-              stroke-width="4" 
+              :stroke-width="4" 
               color="#4facfe" 
             />
           </div>
         </el-card>
 
-        <el-card class="stat-card stat-resolved glass">
+        <el-card class="stat-card stat-resolved glass" @click="filterStatus = 'RESOLVED'; fetchTickets()">
           <div class="stat-header">
             <div class="stat-icon-wrap icon-resolved">
               <el-icon :size="32"><Check /></el-icon>
@@ -371,7 +371,7 @@ onMounted(() => {
             <el-progress 
               :percentage="stats.total ? Math.round((stats.by_status?.RESOLVED / stats.total) * 100) : 0" 
               :show-text="false" 
-              stroke-width="4" 
+              :stroke-width="4" 
               color="#43e97b" 
             />
           </div>
@@ -798,11 +798,16 @@ onMounted(() => {
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  cursor: pointer;
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-lg);
+}
+
+.stat-card:active {
+  transform: translateY(-2px);
 }
 
 .stat-card::before {

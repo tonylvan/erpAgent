@@ -143,7 +143,8 @@
               v-for="(scenario, idx) in scenarios"
               :key="idx"
               class="scenario-item"
-              @click="loadScenario(scenario)"
+              :class="{ active: selectedScenarioIndex === idx }"
+              @click="selectedScenarioIndex = idx; loadScenario(scenario)"
             >
               <div class="scenario-icon">{{ scenario.icon }}</div>
               <div class="scenario-content">
@@ -166,6 +167,8 @@
               v-for="(result, idx) in results"
               :key="idx"
               class="result-item"
+              :class="{ active: selectedResultIndex === idx }"
+              @click="selectedResultIndex = idx; selectResult(result)"
             >
               <div class="result-icon">{{ result.icon }}</div>
               <div class="result-content">
@@ -196,6 +199,8 @@ const scenarioText = ref('')
 const ontologyExpanded = ref(true)
 const selectedType = ref('')
 const selectedFilters = ref([])
+const selectedResultIndex = ref(-1)
+const selectedScenarioIndex = ref(-1)
 
 // Graph state
 const nodes = ref<any[]>([])
@@ -482,21 +487,220 @@ const toggleOntology = () => {
 
 const selectType = (type: any) => {
   selectedType.value = type.name
-  // Filter nodes by type
-  // This would filter the displayed nodes
+  console.log('[KnowledgeGraph] Selected type:', type.name)
+  
+  // Filter and highlight nodes by type
+  highlightNodesByType(type.name)
+}
+
+// Highlight nodes by type
+const highlightNodesByType = (nodeType: string) => {
+  if (!g) return
+  
+  // Reset all nodes to normal state
+  g.selectAll('.node-group circle')
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 2)
+    .attr('opacity', 0.3)
+  
+  g.selectAll('.node-group text')
+    .attr('opacity', 0.3)
+  
+  g.selectAll('line')
+    .attr('opacity', 0.1)
+  
+  // Highlight matching nodes
+  g.selectAll('.node-group')
+    .filter((d: any) => d.type === nodeType)
+    .select('circle')
+    .attr('stroke', '#ff4d4f')
+    .attr('stroke-width', 4)
+    .attr('opacity', 1)
+  
+  g.selectAll('.node-group')
+    .filter((d: any) => d.type === nodeType)
+    .select('text')
+    .attr('opacity', 1)
+    .attr('font-weight', 'bold')
+  
+  // Highlight edges connected to matching nodes
+  g.selectAll('line')
+    .filter((d: any) => {
+      const sourceType = d.source?.type || nodes.value.find(n => n.id === d.source)?.type
+      const targetType = d.target?.type || nodes.value.find(n => n.id === d.target)?.type
+      return sourceType === nodeType || targetType === nodeType
+    })
+    .attr('opacity', 0.8)
+    .attr('stroke-width', 2.5)
+    .attr('stroke', '#ff4d4f')
+  
+  // Center view on matching nodes
+  const matchingNodes = nodes.value.filter(n => n.type === nodeType)
+  if (matchingNodes.length > 0) {
+    const avgX = matchingNodes.reduce((sum, n) => sum + (n.x || 0), 0) / matchingNodes.length
+    const avgY = matchingNodes.reduce((sum, n) => sum + (n.y || 0), 0) / matchingNodes.length
+    
+    const centerX = containerWidth.value / 2 - avgX * zoomLevel.value
+    const centerY = containerHeight.value / 2 - avgY * zoomLevel.value
+    
+    if (svg) {
+      svg.transition()
+        .duration(750)
+        .call(
+          zoom.transform,
+          d3.zoomIdentity.translate(centerX, centerY).scale(zoomLevel.value)
+        )
+    }
+  }
+  
+  // Update stats
+  console.log(`[KnowledgeGraph] Highlighted ${matchingNodes.length} nodes of type ${nodeType}`)
 }
 
 const resetFilters = () => {
   selectedFilters.value = []
+  selectedType.value = ''
+  resetHighlight()
+}
+
+// Reset all highlights
+const resetHighlight = () => {
+  if (!g) return
+  
+  g.selectAll('.node-group circle')
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 2)
+    .attr('opacity', 1)
+  
+  g.selectAll('.node-group text')
+    .attr('opacity', 1)
+    .attr('font-weight', 'normal')
+  
+  g.selectAll('line')
+    .attr('opacity', 0.6)
+    .attr('stroke-width', 1.5)
+    .attr('stroke', '#999')
 }
 
 // Scenario handlers
 const executeScenario = () => {
   console.log('Execute scenario:', scenarioText.value)
+  // TODO: Implement scenario execution logic
 }
 
 const loadScenario = (scenario: any) => {
   scenarioText.value = scenario.desc
+  console.log('[KnowledgeGraph] Loading scenario:', scenario.type)
+  
+  // Highlight nodes based on scenario type
+  highlightScenarioNodes(scenario.type)
+}
+
+// Highlight nodes based on scenario
+const highlightScenarioNodes = (scenarioType: string) => {
+  if (!g) return
+  
+  // Define scenario-related node types
+  const scenarioNodeMap: Record<string, string[]> = {
+    'p2p': ['PurchaseOrder', 'Supplier', 'Invoice', 'Payment'],  // P2P: 采购到付款
+    'o2c': ['SalesOrder', 'Customer', 'Invoice', 'Payment'],     // O2C: 订单到收款
+    'finance': ['Invoice', 'Payment'],                          // 财务分析
+    'risk': ['Customer', 'Supplier', 'Payment'],                 // 风险预警
+  }
+  
+  const relatedTypes = scenarioNodeMap[scenarioType] || []
+  if (relatedTypes.length === 0) return
+  
+  // Reset all nodes
+  g.selectAll('.node-group circle')
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 2)
+    .attr('opacity', 0.2)
+  
+  g.selectAll('.node-group text')
+    .attr('opacity', 0.2)
+  
+  g.selectAll('line')
+    .attr('opacity', 0.05)
+  
+  // Highlight scenario-related nodes
+  relatedTypes.forEach((nodeType, index) => {
+    const color = ['#667eea', '#52c41a', '#fa8c16', '#1890ff'][index] || '#ff4d4f'
+    
+    g.selectAll('.node-group')
+      .filter((d: any) => d.type === nodeType)
+      .select('circle')
+      .attr('stroke', color)
+      .attr('stroke-width', 4)
+      .attr('opacity', 1)
+    
+    g.selectAll('.node-group')
+      .filter((d: any) => d.type === nodeType)
+      .select('text')
+      .attr('opacity', 1)
+      .attr('font-weight', 'bold')
+  })
+  
+  // Highlight edges between scenario nodes
+  g.selectAll('line')
+    .filter((d: any) => {
+      const sourceType = d.source?.type || nodes.value.find(n => n.id === d.source)?.type
+      const targetType = d.target?.type || nodes.value.find(n => n.id === d.target)?.type
+      return relatedTypes.includes(sourceType) && relatedTypes.includes(targetType)
+    })
+    .attr('opacity', 0.9)
+    .attr('stroke-width', 3)
+    .attr('stroke', '#667eea')
+  
+  console.log(`[KnowledgeGraph] Highlighted scenario ${scenarioType} nodes:`, relatedTypes)
+}
+
+// Handle result click - highlight related nodes
+const selectResult = (result: any) => {
+  console.log('[KnowledgeGraph] Selected result:', result.title)
+  
+  // Parse result to find related nodes
+  // For demo, we highlight nodes mentioned in the result
+  if (result.title.includes('P2P')) {
+    highlightScenarioNodes('p2p')
+  } else if (result.title.includes('异常')) {
+    // Highlight nodes with anomalies (simulated)
+    highlightRandomNodes(3, '#ff4d4f')
+  } else if (result.title.includes('效率')) {
+    // Highlight a random subset
+    highlightRandomNodes(5, '#52c41a')
+  } else {
+    resetHighlight()
+  }
+}
+
+// Highlight random nodes for demo
+const highlightRandomNodes = (count: number, color: string) => {
+  if (!g) return
+  
+  // Reset all
+  resetHighlight()
+  g.selectAll('.node-group circle').attr('opacity', 0.3)
+  g.selectAll('.node-group text').attr('opacity', 0.3)
+  g.selectAll('line').attr('opacity', 0.1)
+  
+  // Pick random nodes
+  const randomNodes = nodes.value.slice(0, count)
+  
+  randomNodes.forEach(node => {
+    g.selectAll('.node-group')
+      .filter((d: any) => d.id === node.id)
+      .select('circle')
+      .attr('stroke', color)
+      .attr('stroke-width', 4)
+      .attr('opacity', 1)
+    
+    g.selectAll('.node-group')
+      .filter((d: any) => d.id === node.id)
+      .select('text')
+      .attr('opacity', 1)
+      .attr('font-weight', 'bold')
+  })
 }
 
 // Watch for container resize
@@ -509,14 +713,18 @@ watch([containerWidth, containerHeight], () => {
 
 // Lifecycle
 onMounted(() => {
+  console.log('[KnowledgeGraph] onMounted - initializing...')
   initGraph()
+  console.log('[KnowledgeGraph] initGraph completed')
   loadGraphData()
+  console.log('[KnowledgeGraph] loadGraphData called')
   
   // Handle resize
   const handleResize = () => {
     if (graphContainer.value) {
       containerWidth.value = graphContainer.value.clientWidth
       containerHeight.value = graphContainer.value.clientHeight
+      console.log('[KnowledgeGraph] Resized:', containerWidth.value, 'x', containerHeight.value)
     }
   }
   
@@ -533,9 +741,13 @@ onMounted(() => {
 
 // Load graph data from API
 const loadGraphData = async () => {
+  console.log('[KnowledgeGraph] Loading graph data...')
   try {
-    const response = await fetch('http://localhost:8007/api/v1/graph/')
+    // Use relative path for proxy (works with any frontend port)
+    const response = await fetch('/api/v1/graph/')
+    console.log('[KnowledgeGraph] API response status:', response.status)
     const data = await response.json()
+    console.log('[KnowledgeGraph] API response data:', data)
     
     if (data.success && data.nodes) {
       nodes.value = data.nodes.map((n: any) => ({
@@ -550,13 +762,17 @@ const loadGraphData = async () => {
       
       edges.value = data.edges || []
       
+      console.log('[KnowledgeGraph] Data mapped:', nodes.value.length, 'nodes,', edges.value.length, 'edges')
+      
       // Update graph
       updateGraph()
       
-      console.log(`Loaded ${nodes.value.length} nodes, ${edges.value.length} edges`)
+      console.log(`[KnowledgeGraph] Loaded ${nodes.value.length} nodes, ${edges.value.length} edges`)
+    } else {
+      console.error('[KnowledgeGraph] API returned invalid data:', data)
     }
   } catch (error) {
-    console.error('Failed to load graph data:', error)
+    console.error('[KnowledgeGraph] Failed to load graph data:', error)
   }
 }
 </script>
@@ -619,6 +835,16 @@ const loadGraphData = async () => {
 
 .ontology-item:hover {
   background: #f5f5f5;
+}
+
+.ontology-item.active {
+  background: #e6f7ff;
+  border: 1px solid #1890ff;
+}
+
+.ontology-item.active .ontology-name {
+  font-weight: 600;
+  color: #1890ff;
 }
 
 .ontology-item.active {
@@ -765,6 +991,12 @@ const loadGraphData = async () => {
 .scenario-item:hover,
 .result-item:hover {
   background: #f5f5f5;
+}
+
+.scenario-item.active,
+.result-item.active {
+  background: #e6f7ff;
+  border: 1px solid #1890ff;
 }
 
 .scenario-icon,

@@ -77,7 +77,7 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS 配置 - 支持 localhost 和 127.0.0.1
+# CORS 配置 - 支持 localhost、127.0.0.1 和局域网
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -105,6 +105,11 @@ app.add_middleware(
         "http://127.0.0.1:5182",
         "http://127.0.0.1:5183",
         "http://127.0.0.1:5184",
+        "http://192.168.1.113:5180",
+        "http://192.168.1.113:5181",
+        "http://192.168.1.113:5182",
+        "http://192.168.1.113:5183",
+        "http://192.168.1.113:5184",
     ],
     allow_credentials=True,
     allow_methods=["*"],

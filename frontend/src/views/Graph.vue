@@ -47,7 +47,7 @@
               <el-checkbox
                 v-for="(filter, idx) in filters"
                 :key="idx"
-                :label="filter.value"
+                :value="filter.value"
               >
                 {{ filter.label }}
               </el-checkbox>
@@ -181,11 +181,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { Search, Plus, ZoomIn, ZoomOut, Refresh, Grid, FullScreen, Close } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import GlobalNav from '../components/GlobalNav.vue'
+import { api } from '../utils/api'
 
 const router = useRouter()
 
@@ -196,8 +197,14 @@ const selectedType = ref('')
 const selectedFilters = ref([])
 const scenarioText = ref('')
 const selectedNode = ref(null)
-const nodeCount = ref(672)
-const edgeCount = ref(1149)
+const graphContainer = ref<HTMLElement | null>(null)
+let chartInstance: echarts.ECharts | null = null
+
+// Graph data from API
+const graphNodes = ref<any[]>([])
+const graphEdges = ref<any[]>([])
+const nodeCount = ref(0)
+const edgeCount = ref(0)
 
 // 本体类型
 const ontologyTypes = reactive([
@@ -304,13 +311,177 @@ function loadScenario(scenario: any) {
   scenarioText.value = scenario.desc
 }
 
-onMounted(() => {
-  // 初始化图谱
+onMounted(async () => {
+  // Load real data from backend first
+  await loadGraphData()
+  // Wait for DOM to be ready
+  await nextTick()
+  // Initialize graph with loaded data
   initGraph()
 })
 
+// Handle window resize
+onUnmounted(() => {
+  if (chartInstance) {
+    chartInstance.dispose()
+    chartInstance = null
+  }
+})
+
+// Load graph data from backend API
+async function loadGraphData() {
+  try {
+    console.log('[Graph] Loading graph data...')
+    const data = await api.get('/graph/')
+    console.log('[Graph] Data loaded:', data)
+    
+    // Store graph data
+    graphNodes.value = data.nodes || []
+    graphEdges.value = data.edges || []
+    
+    // Update counts
+    nodeCount.value = graphNodes.value.length
+    edgeCount.value = graphEdges.value.length
+    
+    // Update ontology types with real counts
+    if (data.message && data.message.includes('Real Neo4j')) {
+      console.log('[Graph] Using real Neo4j data')
+      // Load stats for ontology counts
+      try {
+        const stats = await api.get('/graph/stats')
+        console.log('[Graph] Stats:', stats)
+      } catch (e) {
+        console.warn('[Graph] Failed to load stats')
+      }
+    }
+  } catch (error: any) {
+    console.error('[Graph] Failed to load data:', error.message)
+    // Keep default values as fallback
+  }
+}
+
 function initGraph() {
-  // 初始化 ECharts 图谱
+  if (!graphContainer.value) {
+    console.warn('[Graph] Container not ready')
+    return
+  }
+  
+  // Dispose existing instance
+  if (chartInstance) {
+    chartInstance.dispose()
+  }
+  
+  // Create ECharts instance
+  chartInstance = echarts.init(graphContainer.value)
+  
+  // Build nodes and edges for ECharts graph
+  const nodes = graphNodes.value.map((node, idx) => ({
+    id: node.id || String(idx),
+    name: node.label || node.name || node.id,
+    symbolSize: Math.max(20, Math.min(50, (node.degree || 1) * 5)),
+    category: getCategoryIndex(node.type),
+    itemStyle: {
+      color: getNodeColor(node.type)
+    },
+    label: {
+      show: true,
+      fontSize: 10
+    }
+  }))
+  
+  // Filter edges: only keep edges where both source and target exist in nodes
+  const nodeIdSet = new Set(nodes.map(n => n.id))
+  const validEdges = graphEdges.value.filter(edge => 
+    nodeIdSet.has(edge.source) && nodeIdSet.has(edge.target)
+  )
+  
+  const edges = validEdges.map(edge => ({
+    source: edge.source,
+    target: edge.target,
+    label: {
+      show: true,
+      formatter: edge.type || edge.label || ''
+    },
+    lineStyle: {
+      curveness: 0.2
+    }
+  }))
+  
+  console.log('[Graph] Filtered edges:', graphEdges.value.length, '->', edges.length)
+  
+  // Categories for legend
+  const categories = [
+    { name: 'Customer' },
+    { name: 'Supplier' },
+    { name: 'Invoice' },
+    { name: 'Payment' },
+    { name: 'PurchaseOrder' },
+    { name: 'SalesOrder' },
+    { name: 'Product' },
+    { name: 'Other' }
+  ]
+  
+  const option = {
+    tooltip: {},
+    legend: {
+      data: categories.map(c => c.name),
+      orient: 'vertical',
+      right: 10,
+      top: 10
+    },
+    series: [{
+      type: 'graph',
+      layout: 'force',
+      data: nodes,
+      edges: edges,
+      categories: categories,
+      roam: true,
+      label: {
+        position: 'right',
+        formatter: '{b}'
+      },
+      force: {
+        repulsion: 100,
+        edgeLength: 50,
+        gravity: 0.1
+      },
+      emphasis: {
+        focus: 'adjacency',
+        lineStyle: {
+          width: 3
+        }
+      }
+    }]
+  }
+  
+  chartInstance.setOption(option)
+  console.log('[Graph] ECharts initialized with', nodes.length, 'nodes')
+}
+
+function getCategoryIndex(type: string): number {
+  const typeMap: Record<string, number> = {
+    'Customer': 0,
+    'Supplier': 1,
+    'Invoice': 2,
+    'Payment': 3,
+    'PurchaseOrder': 4,
+    'SalesOrder': 5,
+    'Product': 6
+  }
+  return typeMap[type] ?? 7
+}
+
+function getNodeColor(type: string): string {
+  const colorMap: Record<string, string> = {
+    'Customer': '#5470c6',
+    'Supplier': '#91cc75',
+    'Invoice': '#fac858',
+    'Payment': '#ee6666',
+    'PurchaseOrder': '#73c0de',
+    'SalesOrder': '#3ba272',
+    'Product': '#fc8452'
+  }
+  return colorMap[type] || '#9a60b4'
 }
 </script>
 

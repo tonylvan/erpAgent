@@ -53,10 +53,42 @@ def get_graph_data(
     """
     try:
         if neo4j_service.connected:
-            # Get real data from Neo4j
-            nodes = neo4j_service.get_nodes(label=entity_type, limit=limit)
-            edges = neo4j_service.get_edges(limit=limit)
-            message = f"Real Neo4j data - {len(nodes)} nodes, {len(edges)} edges"
+            # Get edges first, then collect all node IDs from edges
+            edges = neo4j_service.get_edges(limit=limit*2)  # Get more edges
+            
+            # Collect all unique node IDs from edges
+            node_ids = set()
+            for edge in edges:
+                node_ids.add(edge['source'])
+                node_ids.add(edge['target'])
+            
+            # Also include Event nodes (synced from alerts)
+            event_nodes = neo4j_service.get_nodes(label='Event', limit=20)
+            for event in event_nodes:
+                node_ids.add(event['id'])
+            
+            # Get nodes by IDs (limit to requested number)
+            node_id_list = list(node_ids)[:limit]
+            nodes = neo4j_service.get_nodes_by_ids(node_id_list)
+            
+            # Also add Event nodes directly if not in the list
+            existing_ids = set(n['id'] for n in nodes)
+            for event in event_nodes:
+                if event['id'] not in existing_ids and len(nodes) < limit:
+                    nodes.append(event)
+            
+            # Filter edges to only include those with both nodes present
+            node_id_set = set(n['id'] for n in nodes)
+            valid_edges = [e for e in edges if e['source'] in node_id_set and e['target'] in node_id_set]
+            
+            message = f"Real Neo4j data - {len(nodes)} nodes, {len(valid_edges)} edges ({len(event_nodes)} events)"
+            
+            return GraphData(
+                success=True,
+                nodes=nodes,
+                edges=valid_edges,
+                message=message
+            )
         else:
             # Mock data for demonstration
             nodes = [
@@ -149,6 +181,52 @@ def get_graph_stats(db: Session = Depends(get_db)):
                 },
                 "neo4j_connected": False,
                 "message": "Mock statistics - Neo4j not connected"
+            }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/sync-events")
+def sync_events_to_graph(db: Session = Depends(get_db)):
+    """
+    Sync alerts/events to knowledge graph
+    Creates Event nodes from alert data
+    """
+    try:
+        from app.models.alert import Alert
+        from sqlalchemy import desc
+        
+        # Get recent alerts
+        alerts = db.query(Alert).order_by(desc(Alert.created_at)).limit(20).all()
+        
+        if not alerts:
+            return {"success": True, "synced": 0, "message": "No alerts to sync"}
+        
+        # Convert to dict format
+        events = [{
+            "id": a.id,
+            "title": a.title,
+            "level": a.level,
+            "status": a.status,
+            "business_module": a.business_module,
+            "description": a.description,
+            "created_at": str(a.created_at) if a.created_at else None
+        } for a in alerts]
+        
+        # Sync to Neo4j
+        if neo4j_service.connected:
+            synced = neo4j_service.sync_events(events)
+            return {
+                "success": True,
+                "synced": synced,
+                "total_alerts": len(alerts),
+                "message": f"Synced {synced} events to knowledge graph"
+            }
+        else:
+            return {
+                "success": False,
+                "synced": 0,
+                "message": "Neo4j not connected"
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

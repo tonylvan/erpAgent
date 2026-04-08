@@ -180,9 +180,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
+import { useRouter, onBeforeRouteLeave } from 'vue-router'
 import { ElMessage } from 'element-plus'
+
+// Storage key for message history
+const STORAGE_KEY = 'smart-query-history'
+const MAX_HISTORY = 50 // Keep last 50 messages
 import {
   Bell,
   ChatDotRound,
@@ -268,31 +272,73 @@ async function sendMessage() {
 
   queryInput.value = ''
   loading.value = true
+  saveMessages() // Save immediately after user message
 
   // Scroll to bottom
   await nextTick()
   scrollToBottom()
 
-  try {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
+  // Store the message ID for potential later update
+  const userMessageId = messages.value[messages.value.length - 1].id
 
-    // Add AI response (mock)
+  try {
+    // Create AbortController for timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s timeout
+
+    // Call backend API (non-blocking, user can navigate away)
+    const response = await fetch('/api/v1/smart-query-v2/query', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        query: content
+      }),
+      signal: controller.signal
+    })
+
+    clearTimeout(timeoutId)
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`)
+    }
+
+    const data = await response.json()
+
+    // Add AI response
     messages.value.push({
       id: Date.now() + 1,
       role: 'assistant',
-      content: `**收到你的问题：** ${content}\n\n这是一个模拟回复。实际应用中会调用后端 API 获取真实数据。\n\n**功能特性：**\n- 📊 数据查询\n- 📈 趋势分析\n- 🔍 深度洞察`,
+      content: data.answer || '查询完成',
       timestamp: Date.now(),
-      suggestedQuestions: [
+      data: data.chart_config ? { chart: data.chart_config } : 
+            data.data_type === 'table' ? { table: data.data } : null,
+      suggestedQuestions: data.follow_up || [
         '详细数据是多少？',
         '与上月对比如何？',
         '导出这个报告'
       ]
     })
-  } catch (error) {
-    ElMessage.error('查询失败，请稍后重试')
+  } catch (error: any) {
+    // Only show error if still on this page
+    if (error.name === 'AbortError') {
+      ElMessage.warning('请求超时，请稍后重试')
+    } else {
+      ElMessage.error('查询失败，请稍后重试')
+    }
+    
+    // Add error message to history
+    messages.value.push({
+      id: Date.now() + 1,
+      role: 'assistant',
+      content: '抱歉，查询过程中出现错误。请稍后重试。',
+      timestamp: Date.now(),
+      isError: true
+    })
   } finally {
     loading.value = false
+    saveMessages() // Save after response
     await nextTick()
     scrollToBottom()
   }
@@ -322,10 +368,67 @@ async function copyMessage(content: string) {
   }
 }
 
+// ==================== Storage Functions ====================
+
+function saveMessages() {
+  try {
+    const data = {
+      messages: messages.value.slice(-MAX_HISTORY),
+      timestamp: Date.now()
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  } catch (e) {
+    console.warn('[SmartQuery] Failed to save messages:', e)
+  }
+}
+
+function loadMessages() {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      const data = JSON.parse(stored)
+      if (data.messages && Array.isArray(data.messages)) {
+        messages.value = data.messages
+        console.log('[SmartQuery] Restored', data.messages.length, 'messages from history')
+      }
+    }
+  } catch (e) {
+    console.warn('[SmartQuery] Failed to load messages:', e)
+  }
+}
+
+function clearHistory() {
+  messages.value = []
+  localStorage.removeItem(STORAGE_KEY)
+  ElMessage.success('历史记录已清空')
+}
+
 // ==================== Lifecycle ====================
 
 onMounted(() => {
   document.title = '智能问数 Pro - GSD 平台'
+  loadMessages()
+  
+  // Auto-scroll to bottom after restoring messages
+  nextTick(() => {
+    scrollToBottom()
+  })
+})
+
+// Watch messages and auto-save
+watch(messages, () => {
+  saveMessages()
+}, { deep: true })
+
+// Allow navigation even during loading
+onBeforeRouteLeave((to, from, next) => {
+  // User can leave freely, messages are saved
+  next()
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+  saveMessages()
 })
 </script>
 

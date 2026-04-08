@@ -255,8 +255,8 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import GlobalNav from '@/components/GlobalNav.vue'
-import { api } from '@/utils/api'
+import GlobalNav from '../components/GlobalNav.vue'
+import { api } from '../utils/api'
 
 const router = useRouter()
 

@@ -181,6 +181,7 @@ import {
   Loading 
 } from '@element-plus/icons-vue'
 import GlobalNav from '../components/GlobalNav.vue'
+import { api } from '../utils/api'
 
 // ==================== Types ====================
 
@@ -241,20 +242,17 @@ const currentFilterSeverity = ref('')
 
 // ==================== API Calls ====================
 
-const API_BASE = 'http://localhost:8006/api/v1/alerts'
-
 async function fetchAlertStats() {
   try {
-    const response = await fetch(`${API_BASE}/stats`)
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
-    const data = await response.json()
+    console.log('[AlertCenter] Fetching alert stats...')
+    const data = await api.get('/alerts/stats')
+    console.log('[AlertCenter] Stats received:', data)
     stats.value = data
-  } catch (error) {
-    console.error('Failed to fetch alert stats:', error)
-    // Don't show error for empty data, only for actual errors
-    if (error.message && !error.message.includes('404')) {
+  } catch (error: any) {
+    console.error('[AlertCenter] Failed to fetch alert stats:', error)
+    console.error('[AlertCenter] Error message:', error.message)
+    // Show notification only if not network error
+    if (error.message && !error.message.includes('undefined') && !error.message.includes('404')) {
       ElMessage.error('Failed to load alert statistics')
     }
   }
@@ -276,17 +274,18 @@ async function fetchAlerts() {
     params.append('page', pagination.value.page.toString())
     params.append('size', pagination.value.size.toString())
 
-    const response = await fetch(`${API_BASE}?${params.toString()}`)
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
-    const data = await response.json()
-    alertList.value = data
-    pagination.value.total = data.length // In production, get total from API
-  } catch (error) {
-    console.error('Failed to fetch alerts:', error)
-    // Don't show error for empty data, only for actual errors
-    if (error.message && !error.message.includes('404')) {
+    console.log('[AlertCenter] Fetching alerts with params:', params.toString())
+    const data = await api.get(`/alerts?${params.toString()}`)
+    console.log('[AlertCenter] Alerts received:', data?.length ?? 0, 'items')
+    // Ensure data is an array
+    alertList.value = Array.isArray(data) ? data : []
+    pagination.value.total = alertList.value.length
+  } catch (error: any) {
+    console.error('[AlertCenter] Failed to fetch alerts:', error)
+    console.error('[AlertCenter] Error message:', error.message)
+    // Ensure alertList is always an array
+    alertList.value = []
+    if (error.message && !error.message.includes('undefined') && !error.message.includes('404')) {
       ElMessage.error('Failed to load alerts')
     }
   } finally {
@@ -401,23 +400,23 @@ function exportDetails() {
 
 // ==================== Helpers ====================
 
-function getLevelTagType(level: string): 'danger' | 'warning' | '' {
-  const map: Record<string, any> = {
+function getLevelTagType(level: string): 'danger' | 'warning' | 'info' | 'success' | 'primary' {
+  const map: Record<string, 'danger' | 'warning' | 'info' | 'success' | 'primary'> = {
     'CRITICAL': 'danger',
     'HIGH': 'warning',
-    'MEDIUM': '',
+    'MEDIUM': 'info',
     'LOW': 'success'
   }
-  return map[level] || ''
+  return map[level] || 'primary'
 }
 
-function getStatusTagType(status: string): 'info' | 'success' | '' {
-  const map: Record<string, any> = {
+function getStatusTagType(status: string): 'info' | 'success' | 'warning' | 'primary' {
+  const map: Record<string, 'info' | 'success' | 'warning' | 'primary'> = {
     'UNREAD': 'info',
-    'READ': '',
+    'READ': 'warning',
     'ACKNOWLEDGED': 'success'
   }
-  return map[status] || ''
+  return map[status] || 'primary'
 }
 
 const filteredAlerts = computed(() => {
