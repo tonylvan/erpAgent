@@ -125,8 +125,8 @@
               :rows="4"
               placeholder="输入 P2P/O2C 等场景描述..."
             />
-            <el-button type="primary" style="width: 100%; margin-top: 12px" @click="executeScenario">
-              立即执行
+            <el-button type="primary" @click="executeScenario">
+              🚀 执行场景分析
             </el-button>
           </div>
         </el-card>
@@ -859,7 +859,8 @@ const loadGraphData = async () => {
 /* 侧边面板 */
 .ontology-panel,
 .scenario-panel {
-  width: 280px;
+  width: 320px;
+  min-width: 320px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1028,6 +1029,18 @@ const loadGraphData = async () => {
 .scenario-input {
   display: flex;
   flex-direction: column;
+  gap: 12px;
+}
+
+.scenario-input .el-input {
+  width: 100%;
+}
+
+.scenario-input .el-button {
+  width: 100%;
+  padding: 12px 20px;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 /* 场景列表 */
