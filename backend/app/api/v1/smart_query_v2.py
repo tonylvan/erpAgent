@@ -244,9 +244,9 @@ class Neo4jKnowledgeEngine:
         
         # 销售趋势查询（增强：支持时间范围）
         if '销售' in q:
-            return f"""
+            # 不使用时间条件，直接返回所有数据
+            return """
             MATCH (s:Sale)-[:HAS_TIME]->(t:Time)
-            WHERE {time_condition}
             RETURN t.day as day, sum(s.amount) as amount, count(s) as count
             ORDER BY t.day
             """
