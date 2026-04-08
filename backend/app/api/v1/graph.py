@@ -233,3 +233,64 @@ def sync_events_to_graph(db: Session = Depends(get_db)):
             }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/node/{node_id}/relations")
+def get_node_relations(node_id: str, limit: int = 10):
+    """
+    Get related nodes for a specific node
+    Used for double-click expand functionality
+    """
+    try:
+        if not neo4j_service.connected:
+            return {"success": False, "relatedNodes": [], "relatedEdges": [], "message": "Neo4j not connected"}
+        
+        # Query related nodes using Neo4j
+        cypher = f"""
+        MATCH (n)-[r]-(related)
+        WHERE elementId(n) = '{node_id}' OR n.id = '{node_id}' OR n.name = '{node_id}'
+        RETURN DISTINCT related, r, labels(related)[0] as relatedType, type(r) as relType
+        LIMIT {limit}
+        """
+        
+        result = neo4j_service.execute_query(cypher)
+        
+        if not result:
+            return {"success": True, "relatedNodes": [], "relatedEdges": [], "message": "No relations found"}
+        
+        related_nodes = []
+        related_edges = []
+        
+        for record in result:
+            # Process related node
+            node = record.get('related')
+            if node:
+                node_props = dict(node) if hasattr(node, 'items') else {}
+                related_nodes.append({
+                    "id": record.get('relatedType', 'Unknown') + '_' + str(len(related_nodes)),
+                    "name": node_props.get('name', node_props.get('id', 'Unknown')),
+                    "type": record.get('relatedType', 'Unknown'),
+                    "properties": node_props
+                })
+            
+            # Process edge
+            rel = record.get('r')
+            if rel:
+                rel_type = record.get('relType', 'RELATED')
+                related_edges.append({
+                    "id": f"edge_{len(related_edges)}",
+                    "source": node_id,
+                    "target": related_nodes[-1]['id'] if related_nodes else 'unknown',
+                    "type": rel_type
+                })
+        
+        return {
+            "success": True,
+            "relatedNodes": related_nodes,
+            "relatedEdges": related_edges,
+            "message": f"Found {len(related_nodes)} related nodes"
+        }
+        
+    except Exception as e:
+        print(f"[ERROR] Failed to get node relations: {e}")
+        return {"success": False, "relatedNodes": [], "relatedEdges": [], "message": str(e)}

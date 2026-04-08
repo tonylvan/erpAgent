@@ -97,6 +97,18 @@
             </el-button-group>
           </div>
 
+          <div class="toolbar-search">
+            <el-input
+              v-model="searchKeyword"
+              placeholder="搜索节点..."
+              :prefix-icon="Search"
+              clearable
+              size="small"
+              @input="handleSearch"
+              @clear="clearSearch"
+            />
+          </div>
+          
           <div class="toolbar-right">
             <div class="canvas-info">
               <span>节点:{{ nodes.length }}</span>
@@ -216,7 +228,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ZoomIn, ZoomOut, Refresh, Grid, FullScreen, Close } from '@element-plus/icons-vue'
+import { ZoomIn, ZoomOut, Refresh, Grid, FullScreen, Close, Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import * as d3 from 'd3'
 import GlobalNav from '../components/GlobalNav.vue'
@@ -297,6 +309,214 @@ const setNodeLimit = async (limit: number | 'all') => {
     ElMessage.error('加载图谱数据失败')
   }
 }
+
+// ========== Search Functionality ==========
+const searchKeyword = ref('')
+const searchResults = ref<any[]>([])
+
+// Handle search input
+const handleSearch = () => {
+  if (!searchKeyword.value.trim()) {
+    clearSearch()
+    return
+  }
+
+  const keyword = searchKeyword.value.toLowerCase()
+  
+  // Search in all nodes
+  const results = nodes.value.filter(n => 
+    n.name?.toLowerCase().includes(keyword) ||
+    n.type?.toLowerCase().includes(keyword) ||
+    n.id?.toString().includes(keyword)
+  )
+  
+  searchResults.value = results
+  
+  if (results.length > 0) {
+    highlightSearchResults(results)
+    ElMessage.success(`Found ${results.length} matching nodes`)
+  } else {
+    ElMessage.warning('No matching nodes found')
+  }
+}
+
+// Highlight search results
+const highlightSearchResults = (results: any[]) => {
+  if (!g) return
+  
+  // Reset all nodes
+  g.selectAll('.node-group circle')
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 2)
+    .attr('opacity', 0.2)
+  
+  g.selectAll('.node-group text')
+    .attr('opacity', 0.2)
+  
+  // Highlight matching nodes
+  const matchIds = results.map(r => r.id)
+  g.selectAll('.node-group')
+    .filter((d: any) => matchIds.includes(d.id))
+    .select('circle')
+    .attr('stroke', '#1890ff')
+    .attr('stroke-width', 4)
+    .attr('opacity', 1)
+  
+  g.selectAll('.node-group')
+    .filter((d: any) => matchIds.includes(d.id))
+    .select('text')
+    .attr('opacity', 1)
+    .attr('font-weight', 'bold')
+  
+  // Center on first result
+  if (results[0]) {
+    centerOnNode(results[0])
+  }
+}
+
+// Center view on a specific node
+const centerOnNode = (node: any) => {
+  if (!svg || !node.x || !node.y) return
+  
+  const transform = d3.zoomIdentity
+    .translate(containerWidth.value / 2, containerHeight.value / 2)
+    .scale(1.5)
+    .translate(-node.x, -node.y)
+  
+  svg.transition().duration(750).call(zoom.transform as any, transform)
+}
+
+// Clear search
+const clearSearch = () => {
+  searchKeyword.value = ''
+  searchResults.value = []
+  
+  // Restore all nodes
+  if (g) {
+    g.selectAll('.node-group circle')
+      .attr('stroke', '#fff')
+      .attr('stroke-width', 2)
+      .attr('opacity', 1)
+    
+    g.selectAll('.node-group text')
+      .attr('opacity', 1)
+  }
+}
+
+// ========== End Search Functionality ==========
+
+// ========== Expand Node Relations (Double-click) ==========
+const expandedNodes = ref<Set<string>>(new Set())
+
+// Expand node relations on double-click
+const expandNodeRelations = async (node: any) => {
+  if (!node || !node.id) return
+  
+  console.log('[KnowledgeGraph] Expanding relations for node:', node.id)
+  
+  // Check if already expanded
+  if (expandedNodes.value.has(node.id)) {
+    ElMessage.info('Node already expanded')
+    return
+  }
+  
+  try {
+    // Fetch related nodes from API
+    const response = await fetch(`/api/v1/graph/node/${node.id}/relations`)
+    const data = await response.json()
+    
+    if (data.success && data.relatedNodes) {
+      const newNodes = data.relatedNodes.filter(
+        (n: any) => !nodes.value.some(existing => existing.id === n.id)
+      )
+      const newEdges = data.relatedEdges.filter(
+        (e: any) => !edges.value.some(existing => existing.id === e.id)
+      )
+      
+      if (newNodes.length > 0) {
+        // Add new nodes and edges
+        nodes.value = [...nodes.value, ...newNodes]
+        edges.value = [...edges.value, ...newEdges]
+        
+        // Mark as expanded
+        expandedNodes.value.add(node.id)
+        
+        // Update graph
+        updateGraph()
+        
+        ElMessage.success(`Expanded ${newNodes.length} related nodes`)
+      } else {
+        ElMessage.info('All related nodes already shown')
+        expandedNodes.value.add(node.id)
+      }
+    } else {
+      // Fallback: highlight existing connected nodes
+      highlightConnectedNodes(node)
+      ElMessage.info('No new nodes to expand')
+    }
+  } catch (error) {
+    console.error('[KnowledgeGraph] Failed to expand relations:', error)
+    // Fallback: highlight existing connected nodes
+    highlightConnectedNodes(node)
+    ElMessage.warning('Failed to load related nodes, showing existing connections')
+  }
+}
+
+// Highlight nodes connected to a specific node
+const highlightConnectedNodes = (node: any) => {
+  if (!g) return
+  
+  // Find connected nodes
+  const connectedIds = new Set<string>()
+  edges.value.forEach((e: any) => {
+    if (e.source?.id === node.id || e.source === node.id) {
+      connectedIds.add(e.target?.id || e.target)
+    }
+    if (e.target?.id === node.id || e.target === node.id) {
+      connectedIds.add(e.source?.id || e.source)
+    }
+  })
+  
+  connectedIds.add(node.id)
+  
+  // Reset all nodes
+  g.selectAll('.node-group circle')
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 2)
+    .attr('opacity', 0.2)
+  
+  // Highlight connected nodes
+  g.selectAll('.node-group')
+    .filter((d: any) => connectedIds.has(d.id))
+    .select('circle')
+    .attr('stroke', '#52c41a')
+    .attr('stroke-width', 4)
+    .attr('opacity', 1)
+  
+  g.selectAll('.node-group')
+    .filter((d: any) => connectedIds.has(d.id))
+    .select('text')
+    .attr('opacity', 1)
+    .attr('font-weight', 'bold')
+  
+  // Highlight connected edges
+  g.selectAll('line')
+    .attr('opacity', 0.1)
+  
+  g.selectAll('line')
+    .filter((d: any) => {
+      const sourceId = d.source?.id || d.source
+      const targetId = d.target?.id || d.target
+      return sourceId === node.id || targetId === node.id
+    })
+    .attr('opacity', 1)
+    .attr('stroke', '#52c41a')
+    .attr('stroke-width', 3)
+  
+  ElMessage.success(`Found ${connectedIds.size - 1} connected nodes`)
+}
+
+// ========== End Expand Node Relations ==========
 
 // 推荐场景
 const scenarios = reactive([
@@ -429,6 +649,7 @@ const updateGraph = () => {
         .attr('stroke-width', 2)
         .style('cursor', 'pointer')
         .on('click', (event: any, d: any) => selectNode(d))
+        .on('dblclick', (event: any, d: any) => expandNodeRelations(d))
         .call(
           d3
             .drag()
@@ -1353,6 +1574,14 @@ const loadGraphData = async () => {
   gap: 16px;
   font-size: 13px;
   color: #666;
+}
+
+.toolbar-search {
+  margin-left: 20px;
+}
+
+.toolbar-search .el-input {
+  width: 200px;
 }
 
 .graph-canvas {
