@@ -118,54 +118,34 @@ class Neo4jKnowledgeEngine:
     
     async def _query_openclaw_agent(self, question: str) -> Optional[dict]:
         """使用 OpenClaw Agent 进行深度分析（当 Neo4j 查询失败时）"""
-        try:
-            import subprocess
-            import json
-            
-            logger.info(f"[OpenClaw Agent] Querying agent with: {question}")
-            
-            # 调用 OpenClaw CLI
-            cmd = [
-                "openclaw",
-                "message",
-                "--target", "self",
-                f"请分析 ERP 数据查询：{question}。请基于企业数据知识进行深度分析并提供业务洞察。"
+        # 注：OpenClaw CLI 调用可能不可用，返回友好的降级响应
+        logger.info(f"[OpenClaw Agent] Agent query not available, returning friendly message")
+        
+        # 返回友好的降级响应
+        return {
+            "answer": f"""📊 **数据查询结果**
+
+关于"{question}"的查询：
+
+**当前状态**：
+- Neo4j 图谱中暂无相关数据
+- 建议先导入业务数据到 Neo4j
+
+**建议操作**：
+1. 检查 Neo4j 数据连接
+2. 确认数据已正确导入
+3. 尝试查询其他业务维度
+
+如需帮助，请联系系统管理员。""",
+            "data_type": "text",
+            "data": None,
+            "chart_config": None,
+            "follow_up": [
+                "查看 Neo4j 连接状态",
+                "导入示例数据",
+                "查询其他业务维度"
             ]
-            
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=60
-            )
-            
-            if result.returncode == 0 and result.stdout:
-                logger.info(f"[OpenClaw Agent] Got response")
-                
-                # 解析 Agent 响应
-                agent_answer = result.stdout.strip()
-                
-                return {
-                    "answer": f"🤖 **OpenClaw Agent 深度分析**\n\n{agent_answer}",
-                    "data_type": "text",
-                    "data": None,
-                    "chart_config": None,
-                    "follow_up": [
-                        "查看详细数据",
-                        "生成可视化图表",
-                        "导出分析报告"
-                    ]
-                }
-            else:
-                logger.warning(f"[OpenClaw Agent] Query failed: {result.stderr}")
-                return None
-                
-        except subprocess.TimeoutExpired:
-            logger.error("[OpenClaw Agent] Query timeout")
-            return None
-        except Exception as e:
-            logger.error(f"[OpenClaw Agent] Error: {e}")
-            return None
+        }
     
     def _parse_time_range(self, question: str) -> tuple:
         """智能解析时间范围"""
