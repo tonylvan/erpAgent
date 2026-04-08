@@ -21,4 +21,10 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 app.component('v-chart', VueECharts);
 
 app.use(router);
+
+// Update document title on route change
+router.afterEach((to) => {
+  document.title = to.meta.title || 'GSD Platform'
+})
+
 app.mount("#app");
