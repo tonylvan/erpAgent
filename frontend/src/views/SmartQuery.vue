@@ -91,9 +91,9 @@
                       <div v-if="msg.data.chart" class="chart-container">
                         <v-chart :option="msg.data.chart" :autoresize="true" style="height: 300px;" />
                       </div>
-                      <el-table v-if="msg.data.table" :data="msg.data.table" stripe size="small">
+                      <el-table v-if="msg.data.table && Array.isArray(msg.data.table)" :data="msg.data.table" stripe size="small">
                         <el-table-column 
-                          v-for="col in msg.data.table[0] ? Object.keys(msg.data.table[0]) : []" 
+                          v-for="col in (msg.data.table && msg.data.table.length > 0) ? Object.keys(msg.data.table[0]) : []" 
                           :key="col"
                           :prop="col"
                           :label="col"
