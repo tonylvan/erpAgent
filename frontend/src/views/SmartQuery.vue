@@ -157,6 +157,15 @@
 
         <!-- 输入区域 -->
         <div class="input-section-pro">
+          <!-- 历史记录提示 -->
+          <div v-if="messages.length > 0" class="history-banner">
+            <span class="history-count">已恢复 {{ messages.length }} 条历史记录</span>
+            <el-button size="small" type="danger" text @click="clearHistory">
+              <el-icon><Delete /></el-icon>
+              清空历史
+            </el-button>
+          </div>
+          
           <div class="input-wrapper-pro">
             <el-input
               v-model="queryInput"
@@ -210,7 +219,8 @@ import {
   CopyDocument,
   Promotion,
   InfoFilled,
-  RefreshRight
+  RefreshRight,
+  Delete
 } from '@element-plus/icons-vue'
 import GlobalNav from '../components/GlobalNav.vue'
 
@@ -484,6 +494,24 @@ onUnmounted(() => {
   height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   overflow: hidden;
+}
+
+/* ==================== History Banner ==================== */
+
+.history-banner {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: rgba(103, 126, 234, 0.1);
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+}
+
+.history-count {
+  font-size: 13px;
+  color: #667eea;
+  font-weight: 500;
 }
 
 /* ==================== Top Navigation ==================== */
