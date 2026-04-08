@@ -490,12 +490,28 @@ const toggleOntology = () => {
   ontologyExpanded.value = !ontologyExpanded.value
 }
 
-const selectType = (type: any) => {
+const selectType = async (type: any) => {
   selectedType.value = type.name
   console.log('[KnowledgeGraph] Selected type:', type.name)
   
-  // Filter and highlight nodes by type
-  highlightNodesByType(type.name)
+  // Check if we have nodes of this type
+  const matchingNodes = nodes.value.filter(n => n.type === type.name)
+  
+  if (matchingNodes.length === 0) {
+    // No nodes of this type, load from Neo4j
+    console.log('[KnowledgeGraph] No nodes found, loading from Neo4j:', type.name)
+    ElMessage.info(`正在从 Neo4j 加载 ${type.label} 数据...`)
+    
+    try {
+      await loadNodesByType(type.name)
+    } catch (error) {
+      console.error('[KnowledgeGraph] Failed to load nodes:', error)
+      ElMessage.error('加载节点失败')
+    }
+  } else {
+    // Highlight existing nodes
+    highlightNodesByType(type.name)
+  }
 }
 
 // Highlight nodes by type
@@ -981,6 +997,54 @@ onMounted(() => {
     }
   })
 })
+
+// Load nodes by type from Neo4j
+const loadNodesByType = async (nodeType: string) => {
+  console.log('[KnowledgeGraph] Loading nodes of type:', nodeType)
+  
+  try {
+    const response = await fetch(`/api/v1/graph/?entity_type=${nodeType}&limit=20`)
+    const data = await response.json()
+    
+    if (data.success && data.nodes) {
+      // Add new nodes
+      const newNodes = data.nodes
+        .filter((n: any) => !nodes.value.find(existing => existing.id === n.id))
+        .map((n: any) => ({
+          id: n.id,
+          name: n.name || n.properties?.name || 'Unknown',
+          type: n.type || nodeType,
+          description: n.description || n.properties?.description || '',
+          properties: n.properties || n,
+          x: Math.random() * containerWidth.value,
+          y: Math.random() * containerHeight.value
+        }))
+      
+      // Add new edges
+      const newEdges = data.edges || []
+      
+      // Update nodes and edges
+      nodes.value = [...nodes.value, ...newNodes]
+      edges.value = [...edges.value, ...newEdges]
+      
+      console.log(`[KnowledgeGraph] Loaded ${newNodes.length} new nodes of type ${nodeType}`)
+      
+      // Update graph visualization
+      updateGraph()
+      
+      // Highlight the newly loaded nodes
+      setTimeout(() => {
+        highlightNodesByType(nodeType)
+        ElMessage.success(`已加载 ${newNodes.length} 个${nodeType}节点`)
+      }, 500)
+    } else {
+      ElMessage.warning(`未找到 ${nodeType} 类型的数据`)
+    }
+  } catch (error) {
+    console.error('[KnowledgeGraph] Failed to load nodes by type:', error)
+    ElMessage.error('加载数据失败')
+  }
+}
 
 // Load graph data from API
 const loadGraphData = async () => {
