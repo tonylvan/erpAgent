@@ -506,6 +506,32 @@ function clearHistory() {
 
 onMounted(() => {
   document.title = '智能问数 Pro - GSD 平台'
+  
+  // Force clear invalid localStorage data before loading
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      const data = JSON.parse(stored)
+      if (data.messages && Array.isArray(data.messages)) {
+        // Check for invalid table data
+        const hasInvalidData = data.messages.some((msg: any) => 
+          msg.data && 
+          msg.data.table !== undefined && 
+          !Array.isArray(msg.data.table)
+        )
+        
+        if (hasInvalidData) {
+          console.warn('[SmartQuery] Force clearing invalid history on mount')
+          localStorage.removeItem(STORAGE_KEY)
+          ElMessage.warning('检测到历史数据异常，已自动清空')
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[SmartQuery] Error checking localStorage:', e)
+    localStorage.removeItem(STORAGE_KEY)
+  }
+  
   loadMessages()
   
   // Auto-scroll to bottom after restoring messages
