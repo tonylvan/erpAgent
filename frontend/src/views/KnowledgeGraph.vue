@@ -269,6 +269,35 @@ const filters = reactive([
   { label: '已处理', value: 'processed' },
 ])
 
+// Node count limit selection
+const nodeLimit = ref<number | 'all'>(100) // Default: 100 nodes
+
+// Set node limit and reload graph
+const setNodeLimit = async (limit: number | 'all') => {
+  nodeLimit.value = limit
+  const actualLimit = limit === 'all' ? 1000 : limit
+  console.log('[KnowledgeGraph] Setting node limit:', actualLimit)
+  
+  ElMessage.info(`正在加载 ${limit === 'all' ? '全部' : limit} 个节点...`)
+  
+  try {
+    const response = await fetch(`/api/v1/graph/?limit=${actualLimit}`)
+    const data = await response.json()
+    
+    if (data.success) {
+      nodes.value = data.nodes
+      edges.value = data.edges
+      updateGraph()
+      ElMessage.success(`已加载 ${data.nodes.length} 个节点, ${data.edges.length} 条关系`)
+    } else {
+      ElMessage.error('加载图谱数据失败')
+    }
+  } catch (error) {
+    console.error('[KnowledgeGraph] Failed to load graph:', error)
+    ElMessage.error('加载图谱数据失败')
+  }
+}
+
 // 推荐场景
 const scenarios = reactive([
   { icon: '🔄', title: 'P2P 流程', desc: '采购到付款全流程分析', type: 'p2p' },

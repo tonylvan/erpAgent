@@ -199,6 +199,38 @@ class Neo4jKnowledgeEngine:
             result = await self._execute_cypher(cypher_query)
             logger.info(f"[SmartQuery] Query result: {len(result)} rows")
             
+            # 转换 Neo4j 特殊类型（Date, DateTime 等）为 Python 原生类型
+            converted_result = []
+            for row in result:
+                converted_row = {}
+                for key, value in row.items():
+                    # 转换 Neo4j Date/DateTime 为字符串
+                    if hasattr(value, 'isoformat'):
+                        converted_row[key] = value.isoformat()
+                    elif hasattr(value, '__class__') and 'neo4j' in str(type(value).__module__):
+                        converted_row[key] = str(value)
+                    else:
+                        converted_row[key] = value
+                converted_result.append(converted_row)
+            
+            result = converted_result
+            
+            # 转换 Neo4j 特殊类型（Date, DateTime 等）为 Python 原生类型
+            converted_result = []
+            for row in result:
+                converted_row = {}
+                for key, value in row.items():
+                    # 转换 Neo4j Date/DateTime 为字符串
+                    if hasattr(value, 'isoformat'):
+                        converted_row[key] = value.isoformat()
+                    elif hasattr(value, '__class__') and 'neo4j' in str(type(value).__module__):
+                        converted_row[key] = str(value)
+                    else:
+                        converted_row[key] = value
+                converted_result.append(converted_row)
+            
+            result = converted_result
+            
             # 如果结果为空，尝试使用更宽松的查询
             if not result:
                 logger.info("[SmartQuery] No results, trying fallback query...")
