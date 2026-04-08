@@ -260,6 +260,8 @@ const nodeColors: Record<string, string> = {
   Order: '#eb2f96',
   Customer: '#667eea',
   Time: '#bfbfbf',
+  Invoice: '#faad14',
+  Supplier: '#f5222d',
 }
 
 // Initialize D3.js force-directed graph
@@ -760,12 +762,12 @@ const loadScenario = (scenario: any) => {
 const highlightScenarioNodes = (scenarioType: string) => {
   if (!g) return
   
-  // Define scenario-related node types
+  // Define scenario-related node types - 映射到实际 Neo4j 节点类型
   const scenarioNodeMap: Record<string, string[]> = {
-    'p2p': ['PurchaseOrder', 'Supplier', 'Invoice', 'Payment'],  // P2P: 采购到付款
-    'o2c': ['SalesOrder', 'Customer', 'Invoice', 'Payment'],     // O2C: 订单到收款
-    'finance': ['Invoice', 'Payment'],                          // 财务分析
-    'risk': ['Customer', 'Supplier', 'Payment'],                 // 风险预警
+    'p2p': ['PurchaseOrder', 'Payment', 'Product'],              // P2P: 采购到付款 (PurchaseOrder + Payment + Product)
+    'o2c': ['Sale', 'Order', 'Customer', 'Payment'],             // O2C: 订单到收款 (Sale + Order + Customer + Payment)
+    'finance': ['Payment', 'Order', 'Sale'],                     // 财务分析 (Payment + Order + Sale)
+    'risk': ['Customer', 'Payment', 'Event'],                    // 风险预警 (Customer + Payment + Event)
   }
   
   const relatedTypes = scenarioNodeMap[scenarioType] || []
