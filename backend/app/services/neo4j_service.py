@@ -140,7 +140,8 @@ class Neo4jService:
     
     def get_edges(self, limit: int = 100) -> List[Dict]:
         """Get relationships from database"""
-        cypher = "MATCH (a)-[r]->(b) RETURN elementId(a) as source_id, elementId(b) as target_id, type(r) as rel_type, properties(r) as props, id(r) as edge_id LIMIT $limit"
+        # Use elementId for both nodes and relationships (Neo4j 5.x compatible)
+        cypher = "MATCH (a)-[r]->(b) RETURN elementId(a) as source_id, elementId(b) as target_id, type(r) as rel_type, properties(r) as props, elementId(r) as edge_id LIMIT $limit"
         results = self.query(cypher, {"limit": limit})
         
         edges = []
