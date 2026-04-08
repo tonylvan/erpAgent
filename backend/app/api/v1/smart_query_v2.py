@@ -475,7 +475,7 @@ class Neo4jKnowledgeEngine:
         follow_up_questions = []
         
         # 销售趋势 - 图表
-        if '销售' in q and ('趋势' in q or '走势' in q or '分析' in q):
+        if '销售' in q:
             if data:
                 total = sum(r.get('amount', 0) for r in data)
                 avg = total / len(data) if data else 0
