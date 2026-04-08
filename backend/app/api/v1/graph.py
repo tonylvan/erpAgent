@@ -53,22 +53,32 @@ def get_graph_data(
     """
     try:
         if neo4j_service.connected:
-            # Get edges first, then collect all node IDs from edges
-            edges = neo4j_service.get_edges(limit=limit*2)  # Get more edges
+            # Get all important node types first
+            all_node_ids = set()
             
-            # Collect all unique node IDs from edges
-            node_ids = set()
-            for edge in edges:
-                node_ids.add(edge['source'])
-                node_ids.add(edge['target'])
+            # Get nodes by type to ensure we have all types represented
+            type_nodes = {}
+            for label in ['Invoice', 'Supplier', 'PurchaseOrder', 'Sale', 'Customer', 'Product', 'Payment', 'Order']:
+                nodes = neo4j_service.get_nodes(label=label, limit=10)
+                type_nodes[label] = nodes
+                for node in nodes:
+                    all_node_ids.add(node['id'])
             
             # Also include Event nodes (synced from alerts)
             event_nodes = neo4j_service.get_nodes(label='Event', limit=20)
             for event in event_nodes:
-                node_ids.add(event['id'])
+                all_node_ids.add(event['id'])
             
-            # Get nodes by IDs (limit to requested number)
-            node_id_list = list(node_ids)[:limit]
+            # Get edges
+            edges = neo4j_service.get_edges(limit=limit*2)
+            
+            # Add nodes from edges
+            for edge in edges:
+                all_node_ids.add(edge['source'])
+                all_node_ids.add(edge['target'])
+            
+            # Limit total nodes
+            node_id_list = list(all_node_ids)[:limit]
             nodes = neo4j_service.get_nodes_by_ids(node_id_list)
             
             # Also add Event nodes directly if not in the list
