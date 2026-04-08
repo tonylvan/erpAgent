@@ -495,7 +495,27 @@ const selectType = (type: any) => {
 
 // Highlight nodes by type
 const highlightNodesByType = (nodeType: string) => {
-  if (!g) return
+  if (!g) {
+    console.error('[KnowledgeGraph] SVG group g is not initialized')
+    return
+  }
+  
+  console.log('[KnowledgeGraph] Highlighting nodes of type:', nodeType)
+  console.log('[KnowledgeGraph] Total nodes:', nodes.value.length)
+  console.log('[KnowledgeGraph] Nodes by type:', nodes.value.reduce((acc, n) => {
+    acc[n.type] = (acc[n.type] || 0) + 1
+    return acc
+  }, {} as Record<string, number>))
+  
+  // Find matching nodes
+  const matchingNodes = nodes.value.filter(n => n.type === nodeType)
+  console.log('[KnowledgeGraph] Matching nodes:', matchingNodes.length)
+  
+  if (matchingNodes.length === 0) {
+    console.warn('[KnowledgeGraph] No nodes found for type:', nodeType)
+    ElMessage.warning(`未找到 "${nodeType}" 类型的节点`)
+    return
+  }
   
   // Reset all nodes to normal state
   g.selectAll('.node-group circle')
@@ -535,18 +555,55 @@ const highlightNodesByType = (nodeType: string) => {
     .attr('stroke', '#ff4d4f')
   
   // Center view on matching nodes
-  const matchingNodes = nodes.value.filter(n => n.type === nodeType)
   if (matchingNodes.length > 0) {
     const avgX = matchingNodes.reduce((sum, n) => sum + (n.x || 0), 0) / matchingNodes.length
     const avgY = matchingNodes.reduce((sum, n) => sum + (n.y || 0), 0) / matchingNodes.length
     
-    const centerX = containerWidth.value / 2 - avgX * zoomLevel.value
-    const centerY = containerHeight.value / 2 - avgY * zoomLevel.value
+    console.log('[KnowledgeGraph] Centering view on:', nodeType, 'avgX:', avgX, 'avgY:', avgY)
+    
+    const transform = d3.zoomIdentity
+      .translate(containerWidth.value / 2, containerHeight.value / 2)
+      .scale(1.2)
+      .translate(-avgX, -avgY)
     
     if (svg) {
+      console.log('[KnowledgeGraph] Applying zoom transition')
       svg.transition()
         .duration(750)
-        .call(
+        .call(zoom.transform as any, transform)
+        .on('end', () => {
+          console.log('[KnowledgeGraph] Zoom transition completed')
+        })
+    }
+  } else {
+    console.warn('[KnowledgeGraph] No matching nodes to center on')
+  }
+}
+
+// Center view on matching nodes
+const centerOnNodes = (nodeType: string) => {
+  const matchingNodes = nodes.value.filter(n => n.type === nodeType)
+  if (matchingNodes.length === 0) return
+  
+  const avgX = matchingNodes.reduce((sum, n) => sum + (n.x || 0), 0) / matchingNodes.length
+  const avgY = matchingNodes.reduce((sum, n) => sum + (n.y || 0), 0) / matchingNodes.length
+  
+  const transform = d3.zoomIdentity
+    .translate(containerWidth.value / 2, containerHeight.value / 2)
+    .scale(1.2)
+    .translate(-avgX, -avgY)
+  
+  if (svg) {
+    svg.transition()
+      .duration(750)
+      .call(zoom.transform as any, transform)
+  }
+}
+
+// Old center logic (keep for compatibility)
+const centerViewOnNodes = (nodeType: string) => {
+  highlightNodesByType(nodeType)
+}
           zoom.transform,
           d3.zoomIdentity.translate(centerX, centerY).scale(zoomLevel.value)
         )
