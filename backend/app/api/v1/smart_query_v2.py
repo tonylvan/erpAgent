@@ -243,7 +243,7 @@ class Neo4jKnowledgeEngine:
             time_condition = "t.week >= date().week - 2"
         
         # 销售趋势查询（增强：支持时间范围）
-        if '销售' in q and ('趋势' in q or '走势' in q or '分析' in q):
+        if '销售' in q:
             return f"""
             MATCH (s:Sale)-[:HAS_TIME]->(t:Time)
             WHERE {time_condition}
