@@ -454,22 +454,37 @@ function loadMessages() {
     if (stored) {
       const data = JSON.parse(stored)
       if (data.messages && Array.isArray(data.messages)) {
-        // Validate and clean messages
+        // Validate and clean messages - be aggressive about invalid data
+        let hasInvalidData = false
         const validMessages = data.messages.filter((msg: any) => {
-          // Check if msg.data.table is an array when it exists
-          if (msg.data && msg.data.table && !Array.isArray(msg.data.table)) {
-            console.warn('[SmartQuery] Filtering out message with invalid table data:', msg)
-            return false
+          // Check if msg.data exists and has table property
+          if (msg.data) {
+            // Check if table exists and is not an array
+            if (msg.data.table !== undefined && !Array.isArray(msg.data.table)) {
+              console.warn('[SmartQuery] Filtering out message with invalid table data')
+              hasInvalidData = true
+              return false
+            }
+            // Check if chart exists and is invalid
+            if (msg.data.chart !== undefined && typeof msg.data.chart !== 'object') {
+              console.warn('[SmartQuery] Filtering out message with invalid chart data')
+              hasInvalidData = true
+              return false
+            }
           }
           return true
         })
-        messages.value = validMessages
-        console.log('[SmartQuery] Restored', validMessages.length, 'messages from history')
         
-        // Save cleaned data back to localStorage
-        if (validMessages.length !== data.messages.length) {
+        if (hasInvalidData) {
+          // Clear all history if there's invalid data
+          console.warn('[SmartQuery] Clearing all history due to invalid data')
+          messages.value = []
+          localStorage.removeItem(STORAGE_KEY)
+          ElMessage.warning('检测到历史数据异常，已自动清空')
+        } else {
+          messages.value = validMessages
+          console.log('[SmartQuery] Restored', validMessages.length, 'messages from history')
           saveMessages()
-          console.log('[SmartQuery] Cleaned invalid messages from history')
         }
       }
     }
@@ -477,6 +492,7 @@ function loadMessages() {
     console.warn('[SmartQuery] Failed to load messages:', e)
     // Clear corrupted data
     localStorage.removeItem(STORAGE_KEY)
+    messages.value = []
   }
 }
 
