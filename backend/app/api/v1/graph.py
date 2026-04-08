@@ -43,7 +43,7 @@ class GraphData(BaseModel):
 @router.get("/", response_model=GraphData)
 def get_graph_data(
     entity_type: Optional[str] = None,
-    limit: int = 50,
+    limit: int = 200,  # Increase default limit from 50 to 200
     db: Session = Depends(get_db)
 ):
     """
@@ -53,38 +53,38 @@ def get_graph_data(
     """
     try:
         if neo4j_service.connected:
-            # Get all important node types first
+            # Get all important node types - increase limits
             all_node_ids = set()
             
             # Get nodes by type to ensure we have all types represented
             type_nodes = {}
-            for label in ['Invoice', 'Supplier', 'PurchaseOrder', 'Sale', 'Customer', 'Product', 'Payment', 'Order']:
-                nodes = neo4j_service.get_nodes(label=label, limit=10)
+            for label in ['Invoice', 'Supplier', 'PurchaseOrder', 'Sale', 'Customer', 'Product', 'Payment', 'Order', 'POLine', 'PriceList']:
+                nodes = neo4j_service.get_nodes(label=label, limit=30)  # Increase from 10 to 30
                 type_nodes[label] = nodes
                 for node in nodes:
                     all_node_ids.add(node['id'])
             
             # Also include Event nodes (synced from alerts)
-            event_nodes = neo4j_service.get_nodes(label='Event', limit=20)
+            event_nodes = neo4j_service.get_nodes(label='Event', limit=30)  # Increase from 20 to 30
             for event in event_nodes:
                 all_node_ids.add(event['id'])
             
-            # Get edges
-            edges = neo4j_service.get_edges(limit=limit*2)
+            # Get edges - increase limit
+            edges = neo4j_service.get_edges(limit=limit*3)  # Increase edge limit
             
             # Add nodes from edges
             for edge in edges:
                 all_node_ids.add(edge['source'])
                 all_node_ids.add(edge['target'])
             
-            # Limit total nodes
-            node_id_list = list(all_node_ids)[:limit]
+            # Get all nodes by IDs (no artificial limit)
+            node_id_list = list(all_node_ids)
             nodes = neo4j_service.get_nodes_by_ids(node_id_list)
             
             # Also add Event nodes directly if not in the list
             existing_ids = set(n['id'] for n in nodes)
             for event in event_nodes:
-                if event['id'] not in existing_ids and len(nodes) < limit:
+                if event['id'] not in existing_ids:
                     nodes.append(event)
             
             # Filter edges to only include those with both nodes present

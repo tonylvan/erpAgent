@@ -215,16 +215,20 @@ const containerHeight = ref(600)
 const showGrid = ref(false)
 const zoomLevel = ref(1)
 
-// 本体类型 - 根据 Neo4j 实际数据调整
+// 本体类型 - 根据 Neo4j 实际数据调整 (683个节点)
 const ontologyTypes = reactive([
-  { name: 'Sale', label: '销售', icon: '💰', count: 15 },
-  { name: 'PurchaseOrder', label: '采购单', icon: '📋', count: 12 },
-  { name: 'Event', label: '事件', icon: '📅', count: 9 },
-  { name: 'Product', label: '产品', icon: '📦', count: 6 },
-  { name: 'Payment', label: '付款', icon: '💳', count: 3 },
-  { name: 'Order', label: '订单', icon: '📝', count: 2 },
-  { name: 'Customer', label: '客户', icon: '👥', count: 2 },
-  { name: 'Time', label: '时间', icon: '⏰', count: 1 },
+  { name: 'POLine', label: '采购行', icon: '📋', count: 200 },
+  { name: 'Invoice', label: '发票', icon: '📄', count: 113 },
+  { name: 'Payment', label: '付款', icon: '💳', count: 110 },
+  { name: 'PriceList', label: '价格表', icon: '💰', count: 60 },
+  { name: 'Supplier', label: '供应商', icon: '🏢', count: 52 },
+  { name: 'PurchaseOrder', label: '采购单', icon: '📝', count: 34 },
+  { name: 'Sale', label: '销售', icon: '💵', count: 25 },
+  { name: 'Order', label: '订单', icon: '📦', count: 20 },
+  { name: 'Customer', label: '客户', icon: '👥', count: 12 },
+  { name: 'Event', label: '事件', icon: '📅', count: 11 },
+  { name: 'Product', label: '产品', icon: '🛍️', count: 8 },
+  { name: 'Time', label: '时间', icon: '⏰', count: 7 },
 ])
 
 // 筛选器
@@ -250,18 +254,20 @@ const results = reactive([
   { icon: '📈', title: '效率提升', desc: '流程优化可提升 15% 效率' },
 ])
 
-// Node color mapping - 匹配 Neo4j 实际类型
+// Node color mapping - 匹配 Neo4j 实际类型 (683个节点)
 const nodeColors: Record<string, string> = {
-  Sale: '#fa8c16',
-  PurchaseOrder: '#1890ff',
-  Event: '#722ed1',
-  Product: '#52c41a',
-  Payment: '#13c2c2',
-  Order: '#eb2f96',
-  Customer: '#667eea',
-  Time: '#bfbfbf',
-  Invoice: '#faad14',
-  Supplier: '#f5222d',
+  POLine: '#8c8c8c',        // 采购行 - 灰色
+  Invoice: '#faad14',       // 发票 - 橙黄色
+  Payment: '#13c2c2',       // 付款 - 青色
+  PriceList: '#722ed1',     // 价格表 - 紫色
+  Supplier: '#f5222d',      // 供应商 - 红色
+  PurchaseOrder: '#1890ff', // 采购单 - 蓝色
+  Sale: '#fa8c16',          // 销售 - 橙色
+  Order: '#eb2f96',         // 订单 - 粉色
+  Customer: '#667eea',      // 客户 - 靛蓝色
+  Event: '#52c41a',         // 事件 - 绿色
+  Product: '#a0d911',       // 产品 - 青绿色
+  Time: '#bfbfbf',          // 时间 - 灰色
 }
 
 // Initialize D3.js force-directed graph
@@ -762,12 +768,12 @@ const loadScenario = (scenario: any) => {
 const highlightScenarioNodes = (scenarioType: string) => {
   if (!g) return
   
-  // Define scenario-related node types - 映射到实际 Neo4j 节点类型
+  // Define scenario-related node types - 映射到实际 Neo4j 节点类型 (683个节点)
   const scenarioNodeMap: Record<string, string[]> = {
-    'p2p': ['PurchaseOrder', 'Payment', 'Product'],              // P2P: 采购到付款 (PurchaseOrder + Payment + Product)
-    'o2c': ['Sale', 'Order', 'Customer', 'Payment'],             // O2C: 订单到收款 (Sale + Order + Customer + Payment)
-    'finance': ['Payment', 'Order', 'Sale'],                     // 财务分析 (Payment + Order + Sale)
-    'risk': ['Customer', 'Payment', 'Event'],                    // 风险预警 (Customer + Payment + Event)
+    'p2p': ['PurchaseOrder', 'POLine', 'Supplier', 'Invoice', 'Payment'],   // P2P: 采购到付款完整流程
+    'o2c': ['Sale', 'Order', 'Customer', 'Invoice', 'Payment'],             // O2C: 订单到收款完整流程
+    'finance': ['Invoice', 'Payment', 'PriceList'],                         // 财务分析
+    'risk': ['Customer', 'Supplier', 'Event'],                              // 风险预警
   }
   
   const relatedTypes = scenarioNodeMap[scenarioType] || []
