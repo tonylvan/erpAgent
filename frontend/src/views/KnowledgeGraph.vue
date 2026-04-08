@@ -16,7 +16,7 @@
               </el-button>
             </div>
           </template>
-          
+
           <div v-show="ontologyExpanded" class="ontology-list">
             <div
               v-for="(type, idx) in ontologyTypes"
@@ -41,7 +41,7 @@
               </el-button>
             </div>
           </template>
-          
+
           <div class="filter-list">
             <el-checkbox-group v-model="selectedFilters">
               <el-checkbox
@@ -68,10 +68,10 @@
             <el-button :icon="Grid" @click="toggleGrid" title="网格" />
             <el-button :icon="FullScreen" @click="toggleFullscreen" title="全屏" />
           </el-button-group>
-          
+
           <div class="canvas-info">
-            <span>节点：{{ nodes.length }}</span>
-            <span>关系：{{ edges.length }}</span>
+            <span>节点:{{ nodes.length }}</span>
+            <span>关系:{{ edges.length }}</span>
           </div>
         </div>
 
@@ -117,7 +117,7 @@
               <span>💬 场景输入</span>
             </div>
           </template>
-          
+
           <div class="scenario-input">
             <el-input
               v-model="scenarioText"
@@ -137,7 +137,7 @@
               <span>📝 推荐场景</span>
             </div>
           </template>
-          
+
           <div class="scenario-list">
             <div
               v-for="(scenario, idx) in scenarios"
@@ -161,7 +161,7 @@
               <span>📊 分析结果</span>
             </div>
           </template>
-          
+
           <div class="result-list">
             <div
               v-for="(result, idx) in results"
@@ -501,15 +501,15 @@ const toggleOntology = () => {
 const selectType = async (type: any) => {
   selectedType.value = type.name
   console.log('[KnowledgeGraph] Selected type:', type.name)
-  
+
   // Check if we have nodes of this type
   const matchingNodes = nodes.value.filter(n => n.type === type.name)
-  
+
   if (matchingNodes.length === 0) {
     // No nodes of this type, load from Neo4j
     console.log('[KnowledgeGraph] No nodes found, loading from Neo4j:', type.name)
     ElMessage.info(`正在从 Neo4j 加载 ${type.label} 数据...`)
-    
+
     try {
       await loadNodesByType(type.name)
     } catch (error) {
@@ -528,36 +528,36 @@ const highlightNodesByType = (nodeType: string) => {
     console.error('[KnowledgeGraph] SVG group g is not initialized')
     return
   }
-  
+
   console.log('[KnowledgeGraph] Highlighting nodes of type:', nodeType)
   console.log('[KnowledgeGraph] Total nodes:', nodes.value.length)
   console.log('[KnowledgeGraph] Nodes by type:', nodes.value.reduce((acc, n) => {
     acc[n.type] = (acc[n.type] || 0) + 1
     return acc
   }, {} as Record<string, number>))
-  
+
   // Find matching nodes
   const matchingNodes = nodes.value.filter(n => n.type === nodeType)
   console.log('[KnowledgeGraph] Matching nodes:', matchingNodes.length)
-  
+
   if (matchingNodes.length === 0) {
     console.warn('[KnowledgeGraph] No nodes found for type:', nodeType)
     ElMessage.warning(`未找到 "${nodeType}" 类型的节点`)
     return
   }
-  
+
   // Reset all nodes to normal state
   g.selectAll('.node-group circle')
     .attr('stroke', '#fff')
     .attr('stroke-width', 2)
     .attr('opacity', 0.3)
-  
+
   g.selectAll('.node-group text')
     .attr('opacity', 0.3)
-  
+
   g.selectAll('line')
     .attr('opacity', 0.1)
-  
+
   // Highlight matching nodes
   g.selectAll('.node-group')
     .filter((d: any) => d.type === nodeType)
@@ -565,13 +565,13 @@ const highlightNodesByType = (nodeType: string) => {
     .attr('stroke', '#ff4d4f')
     .attr('stroke-width', 4)
     .attr('opacity', 1)
-  
+
   g.selectAll('.node-group')
     .filter((d: any) => d.type === nodeType)
     .select('text')
     .attr('opacity', 1)
     .attr('font-weight', 'bold')
-  
+
   // Highlight edges connected to matching nodes
   g.selectAll('line')
     .filter((d: any) => {
@@ -582,19 +582,19 @@ const highlightNodesByType = (nodeType: string) => {
     .attr('opacity', 0.8)
     .attr('stroke-width', 2.5)
     .attr('stroke', '#ff4d4f')
-  
+
   // Center view on matching nodes
   if (matchingNodes.length > 0) {
     const avgX = matchingNodes.reduce((sum, n) => sum + (n.x || 0), 0) / matchingNodes.length
     const avgY = matchingNodes.reduce((sum, n) => sum + (n.y || 0), 0) / matchingNodes.length
-    
+
     console.log('[KnowledgeGraph] Centering view on:', nodeType, 'avgX:', avgX, 'avgY:', avgY)
-    
+
     const transform = d3.zoomIdentity
       .translate(containerWidth.value / 2, containerHeight.value / 2)
       .scale(1.2)
       .translate(-avgX, -avgY)
-    
+
     if (svg) {
       console.log('[KnowledgeGraph] Applying zoom transition')
       svg.transition()
@@ -613,15 +613,15 @@ const highlightNodesByType = (nodeType: string) => {
 const centerOnNodes = (nodeType: string) => {
   const matchingNodes = nodes.value.filter(n => n.type === nodeType)
   if (matchingNodes.length === 0) return
-  
+
   const avgX = matchingNodes.reduce((sum, n) => sum + (n.x || 0), 0) / matchingNodes.length
   const avgY = matchingNodes.reduce((sum, n) => sum + (n.y || 0), 0) / matchingNodes.length
-  
+
   const transform = d3.zoomIdentity
     .translate(containerWidth.value / 2, containerHeight.value / 2)
     .scale(1.2)
     .translate(-avgX, -avgY)
-  
+
   if (svg) {
     svg.transition()
       .duration(750)
@@ -638,7 +638,7 @@ const centerViewOnNodes = (nodeType: string) => {
         )
     }
   }
-  
+
   // Update stats
   console.log(`[KnowledgeGraph] Highlighted ${matchingNodes.length} nodes of type ${nodeType}`)
 }
@@ -652,16 +652,16 @@ const resetFilters = () => {
 // Reset all highlights
 const resetHighlight = () => {
   if (!g) return
-  
+
   g.selectAll('.node-group circle')
     .attr('stroke', '#fff')
     .attr('stroke-width', 2)
     .attr('opacity', 1)
-  
+
   g.selectAll('.node-group text')
     .attr('opacity', 1)
     .attr('font-weight', 'normal')
-  
+
   g.selectAll('line')
     .attr('opacity', 0.6)
     .attr('stroke-width', 1.5)
@@ -670,14 +670,25 @@ const resetHighlight = () => {
 
 // Scenario handlers
 const executeScenario = () => {
-  const text = scenarioText.value.toLowerCase()
+  const text = scenarioText.value.toLowerCase().trim()
   console.log('[KnowledgeGraph] Execute scenario:', text)
   
+  if (!text) {
+    ElMessage.warning('请输入场景描述，例如：P2P采购流程、销售订单分析')
+    return
+  }
+  
+  if (!g) {
+    console.error('[KnowledgeGraph] SVG group g is not initialized')
+    ElMessage.error('图谱未初始化，请刷新页面')
+    return
+  }
+  
   // Smart scenario detection based on keywords
-  if (text.includes('p2p') || text.includes('采购') || text.includes('付款')) {
+  if (text.includes('p2p') || text.includes('采购') || text.includes('付款流程')) {
     console.log('[KnowledgeGraph] Detected P2P scenario')
     highlightScenarioNodes('p2p')
-  } else if (text.includes('o2c') || text.includes('订单') || text.includes('收款') || text.includes('销售')) {
+  } else if (text.includes('o2c') || text.includes('订单') || text.includes('收款') || text.includes('销售流程')) {
     console.log('[KnowledgeGraph] Detected O2C scenario')
     highlightScenarioNodes('o2c')
   } else if (text.includes('财务') || text.includes('发票') || text.includes('应收') || text.includes('应付')) {
@@ -694,13 +705,15 @@ const executeScenario = () => {
     if (text.includes('发票')) nodeTypes.push('Invoice')
     if (text.includes('付款')) nodeTypes.push('Payment')
     if (text.includes('采购')) nodeTypes.push('PurchaseOrder')
+    if (text.includes('采购行')) nodeTypes.push('POLine')
     if (text.includes('销售')) nodeTypes.push('Sale')
+    if (text.includes('价格') || text.includes('报价')) nodeTypes.push('PriceList')
     
     if (nodeTypes.length > 0) {
       console.log('[KnowledgeGraph] Custom scenario with types:', nodeTypes)
       highlightNodesByTypes(nodeTypes)
     } else {
-      ElMessage.warning('未识别到场景类型，请使用 P2P、O2C、采购、销售等关键词')
+      ElMessage.warning('未识别到场景类型，请使用 P2P、O2C、采购、销售、供应商、客户等关键词')
     }
   }
 }
@@ -708,21 +721,21 @@ const executeScenario = () => {
 // Highlight nodes by multiple types
 const highlightNodesByTypes = (types: string[]) => {
   if (!g) return
-  
+
   console.log('[KnowledgeGraph] Highlighting types:', types)
-  
+
   // Reset all nodes
   g.selectAll('.node-group circle')
     .attr('stroke', '#fff')
     .attr('stroke-width', 2)
     .attr('opacity', 0.2)
-  
+
   g.selectAll('.node-group text')
     .attr('opacity', 0.2)
-  
+
   g.selectAll('line')
     .attr('opacity', 0.1)
-  
+
   // Highlight matching nodes
   g.selectAll('.node-group')
     .filter((d: any) => types.includes(d.type))
@@ -730,26 +743,26 @@ const highlightNodesByTypes = (types: string[]) => {
     .attr('stroke', '#ff4d4f')
     .attr('stroke-width', 4)
     .attr('opacity', 1)
-  
+
   g.selectAll('.node-group')
     .filter((d: any) => types.includes(d.type))
     .select('text')
     .attr('opacity', 1)
     .attr('font-weight', 'bold')
-  
+
   // Center view
   const matchingNodes = nodes.value.filter(n => types.includes(n.type))
   if (matchingNodes.length > 0) {
     const avgX = matchingNodes.reduce((sum, n) => sum + (n.x || 0), 0) / matchingNodes.length
     const avgY = matchingNodes.reduce((sum, n) => sum + (n.y || 0), 0) / matchingNodes.length
-    
+
     const transform = d3.zoomIdentity
       .translate(containerWidth.value / 2, containerHeight.value / 2)
       .scale(1.2)
       .translate(-avgX, -avgY)
-    
+
     svg.transition().duration(750).call(zoom.transform as any, transform)
-    
+
     ElMessage.success(`已高亮 ${matchingNodes.length} 个节点`)
   } else {
     ElMessage.warning('未找到匹配的节点')
@@ -759,15 +772,26 @@ const highlightNodesByTypes = (types: string[]) => {
 const loadScenario = (scenario: any) => {
   scenarioText.value = scenario.desc
   console.log('[KnowledgeGraph] Loading scenario:', scenario.type)
-  
+
   // Highlight nodes based on scenario type
   highlightScenarioNodes(scenario.type)
 }
 
 // Highlight nodes based on scenario
 const highlightScenarioNodes = (scenarioType: string) => {
-  if (!g) return
-  
+  if (!g) {
+    console.error('[KnowledgeGraph] SVG group g is not initialized')
+    ElMessage.error('图谱未初始化,请刷新页面')
+    return
+  }
+
+  console.log('[KnowledgeGraph] Highlighting scenario:', scenarioType)
+  console.log('[KnowledgeGraph] Total nodes:', nodes.value.length)
+  console.log('[KnowledgeGraph] Nodes by type:', nodes.value.reduce((acc, n) => {
+    acc[n.type] = (acc[n.type] || 0) + 1
+    return acc
+  }, {} as Record<string, number>))
+
   // Define scenario-related node types - 映射到实际 Neo4j 节点类型 (683个节点)
   const scenarioNodeMap: Record<string, string[]> = {
     'p2p': ['PurchaseOrder', 'POLine', 'Supplier', 'Invoice', 'Payment'],   // P2P: 采购到付款完整流程
@@ -775,40 +799,55 @@ const highlightScenarioNodes = (scenarioType: string) => {
     'finance': ['Invoice', 'Payment', 'PriceList'],                         // 财务分析
     'risk': ['Customer', 'Supplier', 'Event'],                              // 风险预警
   }
-  
+
   const relatedTypes = scenarioNodeMap[scenarioType] || []
-  if (relatedTypes.length === 0) return
-  
+  if (relatedTypes.length === 0) {
+    ElMessage.warning('未识别到场景类型')
+    return
+  }
+
+  // Count matching nodes
+  const matchingCount = nodes.value.filter(n => relatedTypes.includes(n.type)).length
+  console.log('[KnowledgeGraph] Matching nodes for', scenarioType, ':', matchingCount)
+
+  if (matchingCount === 0) {
+    ElMessage.warning(`图谱中没有 ${relatedTypes.join('/')} 类型的节点,请刷新页面加载更多数据`)
+    return
+  }
+
   // Reset all nodes
   g.selectAll('.node-group circle')
     .attr('stroke', '#fff')
     .attr('stroke-width', 2)
     .attr('opacity', 0.2)
-  
+
   g.selectAll('.node-group text')
     .attr('opacity', 0.2)
-  
+
   g.selectAll('line')
     .attr('opacity', 0.05)
-  
+
   // Highlight scenario-related nodes
   relatedTypes.forEach((nodeType, index) => {
-    const color = ['#667eea', '#52c41a', '#fa8c16', '#1890ff'][index] || '#ff4d4f'
-    
-    g.selectAll('.node-group')
+    const color = ['#667eea', '#52c41a', '#fa8c16', '#1890ff'][index % 4] || '#ff4d4f'
+
+    const matchingNodes = g.selectAll('.node-group')
       .filter((d: any) => d.type === nodeType)
-      .select('circle')
-      .attr('stroke', color)
-      .attr('stroke-width', 4)
-      .attr('opacity', 1)
-    
-    g.selectAll('.node-group')
-      .filter((d: any) => d.type === nodeType)
-      .select('text')
-      .attr('opacity', 1)
-      .attr('font-weight', 'bold')
+
+    if (matchingNodes.size() > 0) {
+      matchingNodes.select('circle')
+        .attr('stroke', color)
+        .attr('stroke-width', 4)
+        .attr('opacity', 1)
+
+      matchingNodes.select('text')
+        .attr('opacity', 1)
+        .attr('font-weight', 'bold')
+
+      console.log(`[KnowledgeGraph] Highlighted ${matchingNodes.size()} ${nodeType} nodes`)
+    }
   })
-  
+
   // Highlight edges between scenario nodes
   g.selectAll('line')
     .filter((d: any) => {
@@ -819,14 +858,29 @@ const highlightScenarioNodes = (scenarioType: string) => {
     .attr('opacity', 0.9)
     .attr('stroke-width', 3)
     .attr('stroke', '#667eea')
-  
+
+  // Center view on matching nodes
+  const matchingNodes = nodes.value.filter(n => relatedTypes.includes(n.type))
+  if (matchingNodes.length > 0) {
+    const avgX = matchingNodes.reduce((sum, n) => sum + (n.x || 0), 0) / matchingNodes.length
+    const avgY = matchingNodes.reduce((sum, n) => sum + (n.y || 0), 0) / matchingNodes.length
+
+    const transform = d3.zoomIdentity
+      .translate(containerWidth.value / 2, containerHeight.value / 2)
+      .scale(1.2)
+      .translate(-avgX, -avgY)
+
+    svg.transition().duration(750).call(zoom.transform as any, transform)
+  }
+
+  ElMessage.success(`已高亮 ${matchingCount} 个 ${scenarioType.toUpperCase()} 流程相关节点`)
   console.log(`[KnowledgeGraph] Highlighted scenario ${scenarioType} nodes:`, relatedTypes)
 }
 
 // Handle result click - highlight related nodes
 const selectResult = (result: any) => {
   console.log('[KnowledgeGraph] Selected result:', result.title)
-  
+
   // Parse result to find related nodes
   if (result.title.includes('P2P') || result.title.includes('流程')) {
     highlightScenarioNodes('p2p')
@@ -846,23 +900,23 @@ const selectResult = (result: any) => {
 // Highlight problem/anomaly nodes
 const highlightProblemNodes = () => {
   if (!g) return
-  
+
   console.log('[KnowledgeGraph] Highlighting problem nodes')
-  
+
   // Reset all
   resetHighlight()
   g.selectAll('.node-group circle').attr('opacity', 0.2)
   g.selectAll('.node-group text').attr('opacity', 0.2)
   g.selectAll('line').attr('opacity', 0.1)
-  
+
   // Find Event nodes (alerts/issues)
   const problemNodes = nodes.value.filter(n => n.type === 'Event')
-  
+
   if (problemNodes.length === 0) {
     ElMessage.warning('未找到问题节点')
     return
   }
-  
+
   // Highlight problem nodes
   problemNodes.forEach(node => {
     g.selectAll('.node-group')
@@ -871,14 +925,14 @@ const highlightProblemNodes = () => {
       .attr('stroke', '#ff4d4f')
       .attr('stroke-width', 4)
       .attr('opacity', 1)
-    
+
     g.selectAll('.node-group')
       .filter((d: any) => d.id === node.id)
       .select('text')
       .attr('opacity', 1)
       .attr('font-weight', 'bold')
   })
-  
+
   // Center view on problem nodes
   centerOnNodes(problemNodes)
   ElMessage.success(`已高亮 ${problemNodes.length} 个问题节点`)
@@ -887,24 +941,24 @@ const highlightProblemNodes = () => {
 // Highlight optimization nodes
 const highlightOptimizationNodes = () => {
   if (!g) return
-  
+
   console.log('[KnowledgeGraph] Highlighting optimization nodes')
-  
+
   // Reset all
   resetHighlight()
   g.selectAll('.node-group circle').attr('opacity', 0.2)
   g.selectAll('.node-group text').attr('opacity', 0.2)
   g.selectAll('line').attr('opacity', 0.1)
-  
+
   // Highlight PurchaseOrder and Payment nodes (optimization opportunities)
   const optimizationTypes = ['PurchaseOrder', 'Payment']
   const optimizationNodes = nodes.value.filter(n => optimizationTypes.includes(n.type))
-  
+
   if (optimizationNodes.length === 0) {
     ElMessage.warning('未找到可优化节点')
     return
   }
-  
+
   // Highlight optimization nodes
   optimizationNodes.forEach(node => {
     g.selectAll('.node-group')
@@ -913,14 +967,14 @@ const highlightOptimizationNodes = () => {
       .attr('stroke', '#52c41a')
       .attr('stroke-width', 4)
       .attr('opacity', 1)
-    
+
     g.selectAll('.node-group')
       .filter((d: any) => d.id === node.id)
       .select('text')
       .attr('opacity', 1)
       .attr('font-weight', 'bold')
   })
-  
+
   // Center view
   centerOnNodes(optimizationNodes)
   ElMessage.success(`已高亮 ${optimizationNodes.length} 个可优化节点`)
@@ -929,31 +983,31 @@ const highlightOptimizationNodes = () => {
 // Center view on specific nodes
 const centerOnNodes = (targetNodes: any[]) => {
   if (!svg || targetNodes.length === 0) return
-  
+
   const avgX = targetNodes.reduce((sum, n) => sum + (n.x || 0), 0) / targetNodes.length
   const avgY = targetNodes.reduce((sum, n) => sum + (n.y || 0), 0) / targetNodes.length
-  
+
   const transform = d3.zoomIdentity
     .translate(containerWidth.value / 2, containerHeight.value / 2)
     .scale(1.2)
     .translate(-avgX, -avgY)
-  
+
   svg.transition().duration(750).call(zoom.transform as any, transform)
 }
 
 // Highlight random nodes for demo (deprecated)
 const highlightRandomNodes = (count: number, color: string) => {
   if (!g) return
-  
+
   // Reset all
   resetHighlight()
   g.selectAll('.node-group circle').attr('opacity', 0.3)
   g.selectAll('.node-group text').attr('opacity', 0.3)
   g.selectAll('line').attr('opacity', 0.1)
-  
+
   // Pick random nodes
   const randomNodes = nodes.value.slice(0, count)
-  
+
   randomNodes.forEach(node => {
     g.selectAll('.node-group')
       .filter((d: any) => d.id === node.id)
@@ -961,7 +1015,7 @@ const highlightRandomNodes = (count: number, color: string) => {
       .attr('stroke', color)
       .attr('stroke-width', 4)
       .attr('opacity', 1)
-    
+
     g.selectAll('.node-group')
       .filter((d: any) => d.id === node.id)
       .select('text')
@@ -985,7 +1039,7 @@ onMounted(() => {
   console.log('[KnowledgeGraph] initGraph completed')
   loadGraphData()
   console.log('[KnowledgeGraph] loadGraphData called')
-  
+
   // Handle resize
   const handleResize = () => {
     if (graphContainer.value) {
@@ -994,9 +1048,9 @@ onMounted(() => {
       console.log('[KnowledgeGraph] Resized:', containerWidth.value, 'x', containerHeight.value)
     }
   }
-  
+
   window.addEventListener('resize', handleResize)
-  
+
   // Cleanup
   onUnmounted(() => {
     window.removeEventListener('resize', handleResize)
@@ -1009,11 +1063,11 @@ onMounted(() => {
 // Load nodes by type from Neo4j
 const loadNodesByType = async (nodeType: string) => {
   console.log('[KnowledgeGraph] Loading nodes of type:', nodeType)
-  
+
   try {
     const response = await fetch(`/api/v1/graph/?entity_type=${nodeType}&limit=20`)
     const data = await response.json()
-    
+
     if (data.success && data.nodes) {
       // Add new nodes
       const newNodes = data.nodes
@@ -1027,19 +1081,19 @@ const loadNodesByType = async (nodeType: string) => {
           x: Math.random() * containerWidth.value,
           y: Math.random() * containerHeight.value
         }))
-      
+
       // Add new edges
       const newEdges = data.edges || []
-      
+
       // Update nodes and edges
       nodes.value = [...nodes.value, ...newNodes]
       edges.value = [...edges.value, ...newEdges]
-      
+
       console.log(`[KnowledgeGraph] Loaded ${newNodes.length} new nodes of type ${nodeType}`)
-      
+
       // Update graph visualization
       updateGraph()
-      
+
       // Highlight the newly loaded nodes
       setTimeout(() => {
         highlightNodesByType(nodeType)
@@ -1063,7 +1117,7 @@ const loadGraphData = async () => {
     console.log('[KnowledgeGraph] API response status:', response.status)
     const data = await response.json()
     console.log('[KnowledgeGraph] API response data:', data)
-    
+
     if (data.success && data.nodes) {
       nodes.value = data.nodes.map((n: any) => ({
         id: n.id,
@@ -1074,14 +1128,14 @@ const loadGraphData = async () => {
         x: Math.random() * containerWidth.value,
         y: Math.random() * containerHeight.value
       }))
-      
+
       edges.value = data.edges || []
-      
+
       console.log('[KnowledgeGraph] Data mapped:', nodes.value.length, 'nodes,', edges.value.length, 'edges')
-      
+
       // Update graph
       updateGraph()
-      
+
       console.log(`[KnowledgeGraph] Loaded ${nodes.value.length} nodes, ${edges.value.length} edges`)
     } else {
       console.error('[KnowledgeGraph] API returned invalid data:', data)
