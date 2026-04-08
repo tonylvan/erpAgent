@@ -182,9 +182,25 @@ Based on your query: **"{query}"**
                 ]
             },
             "chart_config": {
-                "type": "bar",
-                "xAxis": ["ABC Corp", "XYZ Ltd", "123 Inc"],
-                "series": [{"name": "Sales", "data": [1234567, 987654, 765432]}]
+                "title": {"text": "Sales by Customer", "left": "center"},
+                "tooltip": {"trigger": "axis"},
+                "xAxis": {
+                    "type": "category",
+                    "data": ["ABC Corp", "XYZ Ltd", "123 Inc"],
+                    "axisLabel": {"rotate": 45}
+                },
+                "yAxis": {
+                    "type": "value",
+                    "name": "Sales Amount",
+                    "axisLabel": {"formatter": "${value}"}
+                },
+                "series": [{
+                    "name": "Sales",
+                    "type": "bar",
+                    "data": [1234567, 987654, 765432],
+                    "itemStyle": {"color": "#667eea"}
+                }],
+                "grid": {"left": "3%", "right": "4%", "bottom": "15%", "containLabel": true}
             },
             "follow_up": [
                 "Show me the sales trend for ABC Corp",
