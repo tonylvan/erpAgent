@@ -249,6 +249,7 @@ import {
   Delete
 } from '@element-plus/icons-vue'
 import GlobalNav from '../components/GlobalNav.vue'
+import VChart from 'vue-echarts'
 
 // ==================== State ====================
 
