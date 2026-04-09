@@ -27,6 +27,7 @@ from app.api.v1.tickets import router as tickets_router
 from app.api.v1.ticket_workflow import router as ticket_workflow_router
 from app.api.v1.ticket_comments import router as ticket_comments_router
 from app.api.v1.graph import router as graph_router
+from app.api.v1.path_analysis import router as path_analysis_router
 from app.api.v1.alert_escalation import router as alert_escalation_router
 from app.api.v1.ticket_alert_integration import router as ticket_alert_integration_router
 from app.websocket.server import manager
@@ -125,6 +126,7 @@ app.include_router(tickets_router, prefix="/api/v1/tickets")  # Ticket Center AP
 app.include_router(ticket_workflow_router, prefix="/api/v1/tickets")  # Ticket Workflow API
 app.include_router(ticket_comments_router, prefix="/api/v1")  # Ticket Comments API (prefix already set in router)
 app.include_router(graph_router, prefix="/api/v1/graph")  # Knowledge Graph API
+app.include_router(path_analysis_router, prefix="/api/v1/path-analysis")  # Path Analysis API
 app.include_router(alert_escalation_router, prefix="/api/v1")  # Alert Escalation API (prefix already set in router)
 app.include_router(ticket_alert_integration_router, prefix="/api/v1")  # Ticket-Alert Integration API
 

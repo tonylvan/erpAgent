@@ -1544,15 +1544,6 @@ const centerOnNodes = (nodeType: string) => {
 const centerViewOnNodes = (nodeType: string) => {
   highlightNodesByType(nodeType)
 }
-          zoom.transform,
-          d3.zoomIdentity.translate(centerX, centerY).scale(zoomLevel.value)
-        )
-    }
-  }
-
-  // Update stats
-  console.log(`[KnowledgeGraph] Highlighted ${matchingNodes.length} nodes of type ${nodeType}`)
-}
 
 const resetFilters = () => {
   selectedFilters.value = []
