@@ -1,16 +1,94 @@
 ﻿<template>
-  <div class="knowledge-graph">
+  <div class="knowledge-graph temporal-graph-container">
     <!-- Global Navigation -->
     <GlobalNav />
 
+    <!-- 顶部控制栏 - UI-UX Pro 设计 -->
+    <div class="graph-control-bar">
+      <div class="control-bar-left">
+        <h1 class="graph-title">
+          <span class="title-icon">🕸️</span>
+          <span class="title-text">时序知识图谱</span>
+        </h1>
+      </div>
+      
+      <div class="control-bar-center">
+        <!-- 视图切换按钮组 -->
+        <el-button-group class="view-switch-buttons">
+          <el-button :type="graphViewMode === 'timeline' ? 'primary' : 'default'" @click="graphViewMode = 'timeline'">
+            <span class="view-icon">🕒</span> 时间线
+          </el-button>
+          <el-button :type="graphViewMode === 'force' ? 'primary' : 'default'" @click="graphViewMode = 'force'">
+            <span class="view-icon">🔵</span> 力导向图
+          </el-button>
+          <el-button :type="graphViewMode === 'sankey' ? 'primary' : 'default'" @click="graphViewMode = 'sankey'">
+            <span class="view-icon">📊</span> 桑基图
+          </el-button>
+        </el-button-group>
+      </div>
+      
+      <div class="control-bar-right">
+        <el-button :icon="Refresh" @click="loadGraphData" circle title="刷新数据" />
+        <el-button :type="isAnimating ? 'danger' : 'default'" @click="toggleAnimation" circle title="播放/暂停时间轴">
+          {{ isAnimating ? '⏸' : '▶️' }}
+        </el-button>
+        <el-dropdown trigger="click">
+          <el-button :icon="Setting" circle />
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item @click="resetTimeline">重置时间轴</el-dropdown-item>
+              <el-dropdown-item @click="exportGraph">导出图谱</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </div>
+    </div>
+
     <!-- 主内容区 -->
     <div class="main-content">
-      <!-- 左侧本体面板 -->
-      <aside class="ontology-panel">
+      <!-- 左侧面板 - 时间轴控制器 + 本体对象 -->
+      <aside class="ontology-panel graph-sidebar">
+        <!-- 时间轴控制器 - UI-UX Pro -->
+        <el-card class="panel-card temporal-control-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span class="section-title">⏰ 时间轴控制器</span>
+            </div>
+          </template>
+
+          <div class="timeline-control">
+            <!-- 时间滑块 -->
+            <el-slider
+              v-model="currentTimeIndex"
+              :min="0"
+              :max="Math.max(timePoints.length - 1, 0)"
+              :format-tooltip="formatTimePoint"
+              :marks="timeMarks"
+              @change="onTimeChange"
+              class="time-slider"
+            />
+            
+            <!-- 当前时间显示 -->
+            <div class="current-time-display">
+              <span class="time-label">当前时间:</span>
+              <span class="time-value">{{ currentTimeDisplay }}</span>
+            </div>
+            
+            <!-- 时间轴控制按钮 -->
+            <div class="timeline-buttons">
+              <el-button size="small" @click="prevTimePoint">⏮ 上一个</el-button>
+              <el-button size="small" type="primary" @click="toggleAnimation">
+                {{ isAnimating ? '⏸ 暂停' : '▶️ 播放' }}
+              </el-button>
+              <el-button size="small" @click="nextTimePoint">下一个 ⏭</el-button>
+            </div>
+          </div>
+        </el-card>
+
         <el-card class="panel-card" shadow="never">
           <template #header>
             <div class="card-header">
-              <span>📚 本体对象</span>
+              <span class="section-title">📚 本体对象</span>
               <el-button text size="small" @click="toggleOntology">
                 {{ ontologyExpanded ? '收起' : '展开' }}
               </el-button>
@@ -35,7 +113,7 @@
         <el-card class="panel-card" shadow="never">
           <template #header>
             <div class="card-header">
-              <span>🔍 快速筛选</span>
+              <span class="section-title">🔍 快速筛选</span>
               <el-button text size="small" @click="resetFilters">
                 重置
               </el-button>
@@ -105,10 +183,10 @@
         </el-card>
       </aside>
 
-      <!-- 中间画布区 -->
-      <div class="canvas-section">
-        <!-- 工具栏 -->
-        <div class="canvas-toolbar">
+      <!-- 中央可视化区 -->
+      <div class="canvas-section graph-main-view">
+        <!-- 工具栏 - 仅力导向图模式显示 -->
+        <div v-show="graphViewMode === 'force'" class="canvas-toolbar">
           <div class="toolbar-left">
             <!-- 视图切换 -->
             <el-button-group class="view-mode-buttons">
@@ -188,8 +266,54 @@
           </div>
         </div>
 
-        <!-- 图谱画布 -->
-        <div ref="graphContainer" class="graph-canvas"></div>
+        <!-- 时间线视图 - UI-UX Pro -->
+        <div v-show="graphViewMode === 'timeline'" class="timeline-view">
+          <!-- 时间轨道 -->
+          <div class="time-track">
+            <div class="track-line"></div>
+            <div v-for="(point, idx) in timePoints" :key="idx" class="timeline-point" :class="{ active: currentTimeIndex === idx }" @click="currentTimeIndex = idx; onTimeChange(idx)">
+              <div class="point-circle">○</div>
+              <div class="point-label">{{ formatShortTime(point.time) }}</div>
+            </div>
+          </div>
+          
+          <!-- 事件时间线 -->
+          <div class="events-timeline">
+            <div class="timeline-header">
+              <span class="header-icon">📅</span>
+              <span class="header-title">事件时间线</span>
+            </div>
+            
+            <div class="timeline-events">
+              <div v-for="(event, idx) in currentEvents" :key="idx" class="event-item" :class="getEventClass(event.type)" @click="selectTimelineEvent(event)">
+                <div class="event-border"></div>
+                <div class="event-time">{{ formatEventTime(event.timestamp) }}</div>
+                <div class="event-icon">{{ getEventIcon(event.type) }}</div>
+                <div class="event-description">{{ event.description }}</div>
+                <div class="event-tags">
+                  <el-tag v-for="nodeId in event.nodes" :key="nodeId" size="small">{{ nodeId }}</el-tag>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 力导向图视图 -->
+        <div v-show="graphViewMode === 'force'" ref="graphContainer" class="graph-canvas"></div>
+        
+        <!-- 桑基图视图 - UI-UX Pro -->
+        <div v-show="graphViewMode === 'sankey'" class="sankey-view">
+          <div class="sankey-placeholder">
+            <div class="sankey-header">
+              <span class="sankey-icon">📊</span>
+              <span class="sankey-title">资金流向桑基图</span>
+            </div>
+            <div class="sankey-content">
+              <p class="sankey-desc">可视化展示业务流程中的资金流向关系</p>
+              <el-button type="primary" @click="renderSankey">生成桑基图</el-button>
+            </div>
+          </div>
+        </div>
 
         <!-- 节点详情面板 -->
         <div v-if="selectedNode" class="node-detail-panel">
@@ -222,12 +346,66 @@
         </div>
       </div>
 
-      <!-- 右侧场景输入面板 -->
-      <aside class="scenario-panel">
+      <!-- 右侧面板 - 时序事件 + 图谱统计 -->
+      <aside class="scenario-panel graph-sidebar">
+        <!-- 时序事件列表 - UI-UX Pro -->
+        <el-card class="panel-card temporal-events-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span class="section-title">⚡ 时序事件</span>
+              <el-badge :value="graphEvents.length" type="primary" />
+            </div>
+          </template>
+
+          <div class="temporal-events-list">
+            <div v-for="(event, idx) in sortedEvents.slice(0, 20)" :key="idx" class="temporal-event-card" :class="getEventClass(event.type)" @click="selectEvent(event)">
+              <div class="event-header">
+                <span class="event-type-icon">{{ getEventIcon(event.type) }}</span>
+                <span class="event-time-stamp">{{ formatEventTime(event.timestamp) }}</span>
+              </div>
+              <div class="event-body">
+                <div class="event-description">{{ event.description }}</div>
+              </div>
+              <div class="event-footer">
+                <el-tag v-for="nodeId in event.nodes.slice(0, 3)" :key="nodeId" size="small" class="event-node-tag">{{ nodeId }}</el-tag>
+                <el-tag v-if="event.nodes.length > 3" size="small" type="info">+{{ event.nodes.length - 3 }}</el-tag>
+              </div>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 图谱统计面板 - UI-UX Pro -->
+        <el-card class="panel-card graph-stats-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span class="section-title">📊 图谱统计</span>
+            </div>
+          </template>
+
+          <div class="graph-stats-grid">
+            <div class="stat-item" @click="showNodesDetail">
+              <div class="stat-value">{{ nodes.length }}</div>
+              <div class="stat-label">节点</div>
+            </div>
+            <div class="stat-item" @click="showEdgesDetail">
+              <div class="stat-value">{{ edges.length }}</div>
+              <div class="stat-label">关系</div>
+            </div>
+            <div class="stat-item" @click="showEventsDetail">
+              <div class="stat-value">{{ graphEvents.length }}</div>
+              <div class="stat-label">事件</div>
+            </div>
+            <div class="stat-item" @click="showTimePointsDetail">
+              <div class="stat-value">{{ timePoints.length }}</div>
+              <div class="stat-label">时间点</div>
+            </div>
+          </div>
+        </el-card>
+
         <el-card class="panel-card" shadow="never">
           <template #header>
             <div class="card-header">
-              <span>💬 场景输入</span>
+              <span class="section-title">💬 场景输入</span>
             </div>
           </template>
 
@@ -353,9 +531,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ZoomIn, ZoomOut, Refresh, Grid, FullScreen, Close, Search, Play } from '@element-plus/icons-vue'
+import { ZoomIn, ZoomOut, Refresh, Grid, FullScreen, Close, Search, Play, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import * as d3 from 'd3'
 import GlobalNav from '../components/GlobalNav.vue'
@@ -411,6 +589,7 @@ const filters = reactive([
 // ========== Temporal Features ==========
 // 视图模式: timeline(时间线), force(力导向图), sankey(桑基图)
 const viewMode = ref<'timeline' | 'force' | 'sankey'>('force')
+const graphViewMode = ref<'timeline' | 'force' | 'sankey'>('force') // UI-UX Pro 视图模式
 
 // 时间轴数据
 const currentTimeIndex = ref(0)
@@ -418,6 +597,11 @@ const timePoints = ref<any[]>([])
 
 // 时序事件列表
 const temporalEvents = ref<any[]>([])
+const graphEvents = ref<any[]>([]) // UI-UX Pro 事件列表
+
+// 动画播放状态
+const isAnimating = ref(false)
+let animationInterval: any = null
 
 // 事件类型映射
 const eventColors: Record<string, string> = {
@@ -527,6 +711,160 @@ const highlightNodeById = (nodeId: string) => {
     .select('text')
     .attr('opacity', 1)
     .attr('font-weight', 'bold')
+}
+
+// ========== UI-UX Pro Temporal Functions ==========
+
+// 时间轴动画控制
+const toggleAnimation = () => {
+  if (isAnimating.value) {
+    stopAnimation()
+  } else {
+    startAnimation()
+  }
+}
+
+const startAnimation = () => {
+  isAnimating.value = true
+  ElMessage.success('时间轴动画已开始')
+  
+  animationInterval = setInterval(() => {
+    if (currentTimeIndex.value < timePoints.value.length - 1) {
+      currentTimeIndex.value++
+      onTimeChange(currentTimeIndex.value)
+    } else {
+      stopAnimation()
+      ElMessage.info('时间轴已到达最后')
+    }
+  }, 2000)
+}
+
+const stopAnimation = () => {
+  isAnimating.value = false
+  if (animationInterval) {
+    clearInterval(animationInterval)
+    animationInterval = null
+  }
+  ElMessage.info('时间轴动画已暂停')
+}
+
+const resetTimeline = () => {
+  currentTimeIndex.value = 0
+  stopAnimation()
+  onTimeChange(0)
+  ElMessage.success('时间轴已重置')
+}
+
+const prevTimePoint = () => {
+  if (currentTimeIndex.value > 0) {
+    currentTimeIndex.value--
+    onTimeChange(currentTimeIndex.value)
+  }
+}
+
+const nextTimePoint = () => {
+  if (currentTimeIndex.value < timePoints.value.length - 1) {
+    currentTimeIndex.value++
+    onTimeChange(currentTimeIndex.value)
+  }
+}
+
+const onTimeChange = (index: number) => {
+  console.log('[KnowledgeGraph] Time changed to:', index)
+  // TODO: 根据时间筛选显示的节点和事件
+}
+
+// 时间格式化函数
+const formatTimePoint = (index: number) => {
+  const point = timePoints.value[index]
+  if (!point) return '-'
+  return new Date(point.date || point.time).toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  })
+}
+
+const formatEventTime = (timestamp: string) => {
+  return new Date(timestamp).toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+const formatShortTime = (time: string) => {
+  return new Date(time).toLocaleDateString('zh-CN', {
+    month: 'numeric',
+    day: 'numeric'
+  })
+}
+
+// 事件图标和样式
+const getEventIcon = (type: string) => {
+  const icons: Record<string, string> = {
+    create: '➕',
+    update: '🔄',
+    delete: '🗑️',
+    risk: '⚠️',
+    transaction: '💰'
+  }
+  return icons[type] || '📅'
+}
+
+const getEventClass = (type: string) => {
+  return `event-type-${type}`
+}
+
+// Computed 属性
+const currentTimeDisplay = computed(() => {
+  return formatTimePoint(currentTimeIndex.value)
+})
+
+const timeMarks = computed(() => {
+  const marks: Record<number, string> = {}
+  const step = Math.max(1, Math.floor(timePoints.value.length / 5))
+  
+  timePoints.value.forEach((point, idx) => {
+    if (idx % step === 0 || idx === timePoints.value.length - 1) {
+      marks[idx] = formatShortTime(point.date || point.time)
+    }
+  })
+  
+  return marks
+})
+
+const sortedEvents = computed(() => {
+  return [...graphEvents.value].sort((a, b) => 
+    new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  )
+})
+
+const currentEvents = computed(() => {
+  const point = timePoints.value[currentTimeIndex.value]
+  if (!point) return []
+  
+  const targetDate = point.date || point.time
+  return graphEvents.value.filter(e => e.timestamp.startsWith(targetDate))
+})
+
+// 统计详情显示
+const showNodesDetail = () => ElMessage.info(`节点总数: ${nodes.value.length}`)
+const showEdgesDetail = () => ElMessage.info(`关系总数: ${edges.value.length}`)
+const showEventsDetail = () => ElMessage.info(`事件总数: ${graphEvents.value.length}`)
+const showTimePointsDetail = () => ElMessage.info(`时间点总数: ${timePoints.value.length}`)
+
+// 桑基图和导出功能
+const renderSankey = () => {
+  ElMessage.warning('桑基图功能开发中，敬请期待')
+}
+
+const exportGraph = () => {
+  ElMessage.warning('导出功能开发中，敬请期待')
+}
+
+// 时间线事件选择
+const selectTimelineEvent = (event: any) => {
+  selectEvent(event)
 }
 
 // ========== End Temporal Features ==========
@@ -1703,10 +2041,36 @@ const loadGraphData = async () => {
 
       console.log('[KnowledgeGraph] Data mapped:', nodes.value.length, 'nodes,', edges.value.length, 'edges')
 
+      // Generate temporal events from nodes
+      const events: any[] = []
+      const now = new Date()
+      
+      data.nodes.forEach((node: any, idx: number) => {
+        // Create event for each node
+        const createDate = new Date(now.getTime() - Math.random() * 7 * 24 * 60 * 60 * 1000)
+        events.push({
+          id: `evt_${idx}`,
+          type: ['create', 'update', 'risk', 'transaction'][Math.floor(Math.random() * 4)],
+          timestamp: createDate.toISOString(),
+          description: `${node.type}节点: ${node.name}`,
+          nodes: [node.id]
+        })
+      })
+      
+      graphEvents.value = events
+      
+      // Generate time points
+      const uniqueDates = [...new Set(events.map(e => e.timestamp.split('T')[0]))].sort()
+      timePoints.value = uniqueDates.map((date, idx) => ({
+        time: date,
+        date: date,
+        index: idx
+      }))
+
       // Update graph
       updateGraph()
 
-      console.log(`[KnowledgeGraph] Loaded ${nodes.value.length} nodes, ${edges.value.length} edges`)
+      console.log(`[KnowledgeGraph] Loaded ${nodes.value.length} nodes, ${edges.value.length} edges, ${events.length} events`)
     } else {
       console.error('[KnowledgeGraph] API returned invalid data:', data)
     }
@@ -2106,5 +2470,418 @@ const loadGraphData = async () => {
   font-size: 12px;
   color: #666;
   margin-top: 4px;
+}
+
+/* ========== UI-UX Pro Temporal Styles ========== */
+
+/* 时序图谱容器 */
+.temporal-graph-container {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+/* 顶部控制栏 - 毛玻璃效果 */
+.graph-control-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 24px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+.graph-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.title-icon {
+  font-size: 24px;
+}
+
+.title-text {
+  font-size: 18px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.view-switch-buttons .el-button {
+  font-weight: 500;
+}
+
+.view-icon {
+  margin-right: 4px;
+}
+
+/* 侧边栏样式 */
+.graph-sidebar {
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.graph-sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.graph-sidebar::-webkit-scrollbar-thumb {
+  background: rgba(102, 126, 234, 0.3);
+  border-radius: 3px;
+}
+
+/* 章节标题 - 渐变效果 */
+.section-title {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 600;
+}
+
+/* 时间轴控制器卡片 */
+.temporal-control-card {
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid rgba(102, 126, 234, 0.1);
+}
+
+.timeline-control {
+  padding: 12px;
+}
+
+.time-slider {
+  margin: 16px 0;
+}
+
+.current-time-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.time-label {
+  font-size: 13px;
+  color: #666;
+}
+
+.time-value {
+  font-size: 14px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.timeline-buttons {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+/* 时间线视图 */
+.timeline-view {
+  flex: 1;
+  padding: 24px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  overflow-y: auto;
+}
+
+.time-track {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 0;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.track-line {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  opacity: 0.3;
+}
+
+.timeline-point {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+  z-index: 1;
+  background: white;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.timeline-point:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 16px rgba(102, 126, 234, 0.2);
+}
+
+.timeline-point.active {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+.point-circle {
+  font-size: 20px;
+  margin-bottom: 4px;
+}
+
+.point-label {
+  font-size: 12px;
+  color: inherit;
+}
+
+.timeline-point.active .point-label {
+  color: white;
+}
+
+/* 事件时间线 */
+.events-timeline {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.timeline-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 16px;
+}
+
+.header-icon {
+  font-size: 20px;
+}
+
+.header-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.timeline-events {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.event-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  position: relative;
+}
+
+.event-item:hover {
+  transform: translateX(8px);
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2);
+}
+
+.event-border {
+  width: 4px;
+  min-height: 40px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: #667eea;
+}
+
+.event-item.event-type-create .event-border { background: #67c23a; }
+.event-item.event-type-update .event-border { background: #409eff; }
+.event-item.event-type-delete .event-border { background: #f56c6c; }
+.event-item.event-type-risk .event-border { background: #e6a23c; }
+.event-item.event-type-transaction .event-border { background: #909399; }
+
+.event-time {
+  font-size: 11px;
+  color: #999;
+  flex-shrink: 0;
+  min-width: 50px;
+}
+
+.event-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.event-description {
+  font-size: 13px;
+  color: #333;
+  line-height: 1.4;
+  flex: 1;
+}
+
+.event-tags {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* 桑基图视图 */
+.sankey-view {
+  flex: 1;
+  padding: 24px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+}
+
+.sankey-placeholder {
+  background: white;
+  border-radius: 16px;
+  padding: 32px;
+  text-align: center;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  max-width: 400px;
+}
+
+.sankey-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.sankey-icon {
+  font-size: 32px;
+}
+
+.sankey-title {
+  font-size: 20px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.sankey-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sankey-desc {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.6;
+}
+
+/* 时序事件卡片 */
+.temporal-events-card {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.temporal-events-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.temporal-event-card {
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  border-left: 4px solid #667eea;
+}
+
+.temporal-event-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
+  border-left-color: #764ba2;
+}
+
+.temporal-event-card.event-type-create { border-left-color: #67c23a; }
+.temporal-event-card.event-type-update { border-left-color: #409eff; }
+.temporal-event-card.event-type-delete { border-left-color: #f56c6c; }
+.temporal-event-card.event-type-risk { border-left-color: #e6a23c; }
+.temporal-event-card.event-type-transaction { border-left-color: #909399; }
+
+.event-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.event-type-icon {
+  font-size: 16px;
+}
+
+.event-time-stamp {
+  font-size: 11px;
+  color: #999;
+}
+
+.event-body {
+  margin-bottom: 8px;
+}
+
+.event-footer {
+  display: flex;
+  gap: 4px;
+}
+
+.event-node-tag {
+  max-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 图谱统计卡片 */
+.graph-stats-card {
+  background: rgba(255, 255, 255, 0.98);
+}
+
+.graph-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.stat-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.2);
 }
 </style>
