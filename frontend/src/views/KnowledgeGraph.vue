@@ -822,13 +822,16 @@ const currentTimeDisplay = computed(() => {
 
 const timeMarks = computed(() => {
   const marks: Record<number, string> = {}
+  if (timePoints.value.length === 0) return marks
+  
   const step = Math.max(1, Math.floor(timePoints.value.length / 5))
   
-  timePoints.value.forEach((point, idx) => {
+  for (let idx = 0; idx < timePoints.value.length; idx++) {
+    const point = timePoints.value[idx]
     if (idx % step === 0 || idx === timePoints.value.length - 1) {
       marks[idx] = formatShortTime(point.date || point.time)
     }
-  })
+  }
   
   return marks
 })
