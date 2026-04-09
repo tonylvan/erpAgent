@@ -163,7 +163,7 @@
             <div class="timeline-actions">
               <el-button 
                 size="small" 
-                :icon="Play" 
+                :icon="VideoPlay" 
                 :type="isAnimating ? 'success' : 'primary'"
                 @click="toggleAnimation"
                 :disabled="timePoints.length === 0"
@@ -533,7 +533,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ZoomIn, ZoomOut, Refresh, Grid, FullScreen, Close, Search, Play, Setting } from '@element-plus/icons-vue'
+import { ZoomIn, ZoomOut, Refresh, Grid, FullScreen, Close, Search, Setting, VideoPlay } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import * as d3 from 'd3'
 import GlobalNav from '../components/GlobalNav.vue'
@@ -1878,23 +1878,8 @@ const highlightOptimizationNodes = () => {
   })
 
   // Center view
-  centerViewOnNodes(optimizationNodes)
+  // centerViewOnNodes already defined at line 1544
   ElMessage.success(`已高亮 ${optimizationNodes.length} 个可优化节点`)
-}
-
-// Center view on specific nodes
-const centerViewOnNodes = (targetNodes: any[]) => {
-  if (!svg || targetNodes.length === 0) return
-
-  const avgX = targetNodes.reduce((sum, n) => sum + (n.x || 0), 0) / targetNodes.length
-  const avgY = targetNodes.reduce((sum, n) => sum + (n.y || 0), 0) / targetNodes.length
-
-  const transform = d3.zoomIdentity
-    .translate(containerWidth.value / 2, containerHeight.value / 2)
-    .scale(1.2)
-    .translate(-avgX, -avgY)
-
-  svg.transition().duration(750).call(zoom.transform as any, transform)
 }
 
 // Highlight random nodes for demo (deprecated)
