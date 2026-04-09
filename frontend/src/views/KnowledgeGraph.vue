@@ -1878,12 +1878,12 @@ const highlightOptimizationNodes = () => {
   })
 
   // Center view
-  centerOnNodes(optimizationNodes)
+  centerViewOnNodes(optimizationNodes)
   ElMessage.success(`已高亮 ${optimizationNodes.length} 个可优化节点`)
 }
 
 // Center view on specific nodes
-const centerOnNodes = (targetNodes: any[]) => {
+const centerViewOnNodes = (targetNodes: any[]) => {
   if (!svg || targetNodes.length === 0) return
 
   const avgX = targetNodes.reduce((sum, n) => sum + (n.x || 0), 0) / targetNodes.length
