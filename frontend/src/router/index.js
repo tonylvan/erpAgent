@@ -1,7 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import AlertCenter from '../views/AlertCenter.vue'
 import SmartQuery from '../views/SmartQuery.vue'
-import Graph from '../views/Graph.vue'
+import KnowledgeGraph from '../views/KnowledgeGraph.vue'  // 新组件：时序功能
 import TicketCenter from '../views/TicketCenter.vue'
 import TicketDetail from '../views/TicketDetail.vue'
 
@@ -25,7 +25,7 @@ const routes = [
   {
     path: '/knowledge-graph',
     name: 'KnowledgeGraph',
-    component: Graph,
+    component: KnowledgeGraph,  // 使用新组件：时序知识图谱
     meta: {
       title: 'Knowledge Graph Pro - GSD Platform'
     }
