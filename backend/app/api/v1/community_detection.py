@@ -250,12 +250,24 @@ async def detect_communities(request: CommunityDetectionRequest):
                     type_nodes = []
                     for node_record in node_result:
                         node_id = node_record['id'] or str(node_record['id'])
+                        
+                        # Convert Neo4j DateTime to string
+                        clean_props = {}
+                        if node_record['n']:
+                            for k, v in dict(node_record['n']).items():
+                                if hasattr(v, 'iso_format'):  # Neo4j DateTime
+                                    clean_props[k] = v.iso_format()
+                                elif isinstance(v, (int, float, str, bool, list)):
+                                    clean_props[k] = v
+                                else:
+                                    clean_props[k] = str(v)
+                        
                         node_data = CommunityNode(
                             id=node_id,
                             type=node_type or 'Unknown',
                             name=node_record['name'] or node_id,
                             community=community_id,
-                            properties=dict(node_record['n']) if node_record['n'] else {}
+                            properties=clean_props
                         )
                         type_nodes.append(node_data)
                         nodes.append(node_data)
