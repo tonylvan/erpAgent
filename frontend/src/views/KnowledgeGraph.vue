@@ -54,6 +54,55 @@
             </el-checkbox-group>
           </div>
         </el-card>
+
+        <!-- 时间轴控制器 (时序模式显示) -->
+        <el-card v-if="viewMode === 'timeline'" class="panel-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span>⏰ 时间轴</span>
+              <el-tag size="small" type="success">{{ timePoints.length }} 个时间点</el-tag>
+            </div>
+          </template>
+
+          <div class="timeline-controller">
+            <div class="current-time-display">
+              <el-tag type="primary" size="large">
+                {{ timePoints[currentTimeIndex]?.label || '选择时间点' }}
+              </el-tag>
+              <div class="event-count">{{ timePoints[currentTimeIndex]?.eventCount || 0 }} 个事件</div>
+            </div>
+
+            <el-slider
+              v-model="currentTimeIndex"
+              :min="0"
+              :max="Math.max(0, timePoints.length - 1)"
+              :marks="timeMarks"
+              :format-tooltip="formatTimePoint"
+              @change="onTimeChange"
+              :disabled="timePoints.length === 0"
+            />
+
+            <div class="timeline-actions">
+              <el-button 
+                size="small" 
+                :icon="Play" 
+                :type="isAnimating ? 'success' : 'primary'"
+                @click="toggleAnimation"
+                :disabled="timePoints.length === 0"
+              >
+                {{ isAnimating ? '暂停' : '播放' }}
+              </el-button>
+              <el-button 
+                size="small" 
+                :icon="Refresh" 
+                @click="resetTimeline"
+                :disabled="timePoints.length === 0"
+              >
+                重置
+              </el-button>
+            </div>
+          </div>
+        </el-card>
       </aside>
 
       <!-- 中间画布区 -->
@@ -306,7 +355,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { ZoomIn, ZoomOut, Refresh, Grid, FullScreen, Close, Search } from '@element-plus/icons-vue'
+import { ZoomIn, ZoomOut, Refresh, Grid, FullScreen, Close, Search, Play } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import * as d3 from 'd3'
 import GlobalNav from '../components/GlobalNav.vue'
