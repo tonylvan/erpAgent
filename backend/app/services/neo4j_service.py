@@ -82,11 +82,13 @@ class Neo4jService:
             with self.driver.session() as session:
                 # Count nodes
                 node_result = session.run("MATCH (n) RETURN count(n) as count")
-                node_count = node_result.single()["count"] if node_result.single() else 0
+                node_record = node_result.single()
+                node_count = node_record["count"] if node_record else 0
                 
                 # Count relationships
                 rel_result = session.run("MATCH ()-[r]->() RETURN count(r) as count")
-                rel_count = rel_result.single()["count"] if rel_result.single() else 0
+                rel_record = rel_result.single()
+                rel_count = rel_record["count"] if rel_record else 0
                 
                 # Get labels
                 label_result = session.run("CALL db.labels()")
