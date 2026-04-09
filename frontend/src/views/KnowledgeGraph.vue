@@ -61,6 +61,28 @@
         <!-- 工具栏 -->
         <div class="canvas-toolbar">
           <div class="toolbar-left">
+            <!-- 视图切换 -->
+            <el-button-group class="view-mode-buttons">
+              <el-button 
+                size="small"
+                :type="viewMode === 'timeline' ? 'primary' : 'default'"
+                @click="switchViewMode('timeline')"
+                title="时间线视图"
+              >🕒 时间线</el-button>
+              <el-button 
+                size="small"
+                :type="viewMode === 'force' ? 'primary' : 'default'"
+                @click="switchViewMode('force')"
+                title="力导向图"
+              >🗺️ 力导向</el-button>
+              <el-button 
+                size="small"
+                :type="viewMode === 'sankey' ? 'primary' : 'default'"
+                @click="switchViewMode('sankey')"
+                title="桑基图"
+              >📊 桑基图</el-button>
+            </el-button-group>
+            <el-divider direction="vertical" />
             <el-button-group>
               <el-button :icon="ZoomIn" @click="zoomIn" title="放大" />
               <el-button :icon="ZoomOut" @click="zoomOut" title="缩小" />
@@ -220,6 +242,62 @@
             </div>
           </div>
         </el-card>
+
+        <!-- 时序事件列表 -->
+        <el-card v-if="viewMode === 'timeline'" class="panel-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span>📅 时序事件</span>
+              <el-tag size="small">{{ temporalEvents.length }} 个事件</el-tag>
+            </div>
+          </template>
+
+          <div class="event-list">
+            <div
+              v-for="(event, idx) in temporalEvents.slice(0, 20)"
+              :key="idx"
+              class="event-item"
+              @click="selectEvent(event)"
+            >
+              <div class="event-indicator" :style="{ backgroundColor: eventColors[event.type] }"></div>
+              <div class="event-content">
+                <div class="event-time">{{ new Date(event.timestamp).toLocaleString('zh-CN') }}</div>
+                <div class="event-desc">{{ event.description }}</div>
+                <div class="event-tags">
+                  <el-tag size="small" effect="plain">{{ event.nodeType }}</el-tag>
+                </div>
+              </div>
+            </div>
+          </div>
+        </el-card>
+
+        <!-- 图谱统计 -->
+        <el-card class="panel-card" shadow="never">
+          <template #header>
+            <div class="card-header">
+              <span>📊 图谱统计</span>
+            </div>
+          </template>
+
+          <div class="stats-grid">
+            <div class="stat-item">
+              <div class="stat-value">{{ nodes.length }}</div>
+              <div class="stat-label">节点</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ edges.length }}</div>
+              <div class="stat-label">关系</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ temporalEvents.length }}</div>
+              <div class="stat-label">事件</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ timePoints.length }}</div>
+              <div class="stat-label">时间点</div>
+            </div>
+          </div>
+        </el-card>
       </aside>
     </div>
   </div>
@@ -280,6 +358,129 @@ const filters = reactive([
   { label: '提示', value: 'info' },
   { label: '已处理', value: 'processed' },
 ])
+
+// ========== Temporal Features ==========
+// 视图模式: timeline(时间线), force(力导向图), sankey(桑基图)
+const viewMode = ref<'timeline' | 'force' | 'sankey'>('force')
+
+// 时间轴数据
+const currentTimeIndex = ref(0)
+const timePoints = ref<any[]>([])
+
+// 时序事件列表
+const temporalEvents = ref<any[]>([])
+
+// 事件类型映射
+const eventColors: Record<string, string> = {
+  create: '#67c23a',   // 创建 - 绿色
+  update: '#409eff',   // 更新 - 蓝色
+  delete: '#f56c6c',   // 删除 - 红色
+  risk: '#e6a23c',     // 风险 - 橙色
+  transaction: '#909399' // 交易 - 灰色
+}
+
+// 切换视图模式
+const switchViewMode = (mode: 'timeline' | 'force' | 'sankey') => {
+  viewMode.value = mode
+  ElMessage.success(`切换到${mode === 'timeline' ? '时间线' : mode === 'force' ? '力导向图' : '桑基图'}视图`)
+  
+  if (mode === 'timeline') {
+    loadTemporalData()
+  }
+}
+
+// 加载时序数据
+const loadTemporalData = async () => {
+  // 从 Neo4j 获取带时间戳的节点
+  try {
+    const response = await fetch('/api/v1/graph/?limit=500')
+    const data = await response.json()
+    
+    if (data.success) {
+      // 生成模拟事件数据
+      const events: any[] = []
+      const now = new Date()
+      
+      data.nodes.forEach((node: any, idx: number) => {
+        // 为每个节点生成创建事件
+        const createDate = new Date(now.getTime() - Math.random() * 7 * 24 * 60 * 60 * 1000)
+        events.push({
+          id: `evt_${idx}_create`,
+          type: 'create',
+          timestamp: createDate.toISOString(),
+          description: `创建${node.type}节点: ${node.name}`,
+          nodeId: node.id,
+          nodeType: node.type,
+          nodeName: node.name
+        })
+      })
+      
+      // 按时间排序
+      events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      
+      temporalEvents.value = events
+      
+      // 生成时间点
+      const uniqueDates = [...new Set(events.map(e => e.timestamp.split('T')[0]))].sort().reverse()
+      timePoints.value = uniqueDates.map((date, idx) => ({
+        date,
+        index: idx,
+        label: new Date(date).toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }),
+        eventCount: events.filter(e => e.timestamp.startsWith(date)).length
+      }))
+      
+      console.log('[KnowledgeGraph] Loaded', events.length, 'temporal events')
+    }
+  } catch (error) {
+    console.error('[KnowledgeGraph] Failed to load temporal data:', error)
+  }
+}
+
+// 选择时间点
+const selectTimePoint = (index: number) => {
+  currentTimeIndex.value = index
+  const point = timePoints.value[index]
+  if (point) {
+    ElMessage.info(`查看 ${point.label} 的事件 (${point.eventCount}个)`)
+  }
+}
+
+// 选择事件
+const selectEvent = (event: any) => {
+  // 高亮对应节点
+  if (event.nodeId) {
+    highlightNodeById(event.nodeId)
+  }
+  ElMessage.info(event.description)
+}
+
+// 高亮指定ID的节点
+const highlightNodeById = (nodeId: string) => {
+  if (!g) return
+  
+  g.selectAll('.node-group circle')
+    .attr('stroke', '#fff')
+    .attr('stroke-width', 2)
+    .attr('opacity', 0.2)
+  
+  g.selectAll('.node-group text')
+    .attr('opacity', 0.2)
+  
+  g.selectAll('.node-group')
+    .filter((d: any) => d.id === nodeId)
+    .select('circle')
+    .attr('stroke', '#ff4d4f')
+    .attr('stroke-width', 4)
+    .attr('opacity', 1)
+  
+  g.selectAll('.node-group')
+    .filter((d: any) => d.id === nodeId)
+    .select('text')
+    .attr('opacity', 1)
+    .attr('font-weight', 'bold')
+}
+
+// ========== End Temporal Features ==========
 
 // Node count limit selection
 const nodeLimit = ref<number | 'all'>(100) // Default: 100 nodes
@@ -551,12 +752,24 @@ const nodeColors: Record<string, string> = {
 
 // Initialize D3.js force-directed graph
 const initGraph = () => {
-  if (!graphContainer.value) return
+  if (!graphContainer.value) {
+    console.error('[KnowledgeGraph] graphContainer is null!')
+    ElMessage.error('图谱容器未找到')
+    return
+  }
 
   // Get container dimensions
   const container = graphContainer.value
-  containerWidth.value = container.clientWidth
-  containerHeight.value = container.clientHeight
+  containerWidth.value = container.clientWidth || 800
+  containerHeight.value = container.clientHeight || 600
+  
+  console.log('[KnowledgeGraph] Container size:', containerWidth.value, 'x', containerHeight.value)
+
+  if (containerWidth.value === 0 || containerHeight.value === 0) {
+    console.error('[KnowledgeGraph] Container size is 0!')
+    ElMessage.error('图谱容器尺寸为0，请刷新页面')
+    return
+  }
 
   // Clear previous SVG
   d3.select(container).selectAll('*').remove()
@@ -570,25 +783,32 @@ const initGraph = () => {
     .attr('viewBox', `0 0 ${containerWidth.value} ${containerHeight.value}`)
     .style('background', showGrid.value ? '#f0f0f0' : '#fafafa')
 
+  console.log('[KnowledgeGraph] SVG created')
+
   // Add zoom behavior
   zoom = d3
     .zoom()
     .scaleExtent([0.1, 4])
     .on('zoom', (event: any) => {
-      g.attr('transform', event.transform)
-      zoomLevel.value = event.transform.k
+      if (g) {
+        g.attr('transform', event.transform)
+        zoomLevel.value = event.transform.k
+      }
     })
 
   svg.call(zoom)
+  console.log('[KnowledgeGraph] Zoom initialized')
 
   // Create group for graph elements
   g = svg.append('g')
+  console.log('[KnowledgeGraph] Group g created')
 
   // Initialize simulation
   initSimulation()
-
-  // Note: Data will be loaded by loadGraphData() in onMounted
-  // loadSampleData() removed to use real API data
+  console.log('[KnowledgeGraph] Simulation initialized')
+  
+  // Mark as ready
+  ElMessage.success('图谱初始化完成')
 }
 
 const initSimulation = () => {
@@ -733,19 +953,28 @@ const deleteNode = () => {
 
 // Zoom controls
 const zoomIn = () => {
-  if (svg) {
-    svg.transition().call(zoom.scaleBy, 1.3)
+  console.log('[KnowledgeGraph] zoomIn called, svg:', !!svg, 'zoom:', !!zoom)
+  if (svg && zoom) {
+    svg.transition().duration(300).call(zoom.scaleBy, 1.5)
+    ElMessage.success('放大')
+  } else {
+    ElMessage.warning('图谱未初始化，请刷新页面')
   }
 }
 
 const zoomOut = () => {
-  if (svg) {
-    svg.transition().call(zoom.scaleBy, 0.7)
+  console.log('[KnowledgeGraph] zoomOut called, svg:', !!svg, 'zoom:', !!zoom)
+  if (svg && zoom) {
+    svg.transition().duration(300).call(zoom.scaleBy, 0.7)
+    ElMessage.success('缩小')
+  } else {
+    ElMessage.warning('图谱未初始化，请刷新页面')
   }
 }
 
 const resetView = () => {
-  if (svg) {
+  console.log('[KnowledgeGraph] resetView called, svg:', !!svg, 'zoom:', !!zoom)
+  if (svg && zoom) {
     svg
       .transition()
       .duration(750)
@@ -753,6 +982,9 @@ const resetView = () => {
         zoom.transform,
         d3.zoomIdentity.translate(0, 0).scale(1)
       )
+    ElMessage.success('视图已重置')
+  } else {
+    ElMessage.warning('图谱未初始化，请刷新页面')
   }
 }
 
@@ -764,12 +996,21 @@ const toggleGrid = () => {
 }
 
 const toggleFullscreen = () => {
+  console.log('[KnowledgeGraph] toggleFullscreen called')
   if (graphContainer.value) {
     if (document.fullscreenElement) {
       document.exitFullscreen()
+      ElMessage.info('退出全屏')
     } else {
-      graphContainer.value.requestFullscreen()
+      graphContainer.value.requestFullscreen().then(() => {
+        ElMessage.success('进入全屏模式')
+      }).catch((err) => {
+        console.error('[KnowledgeGraph] Fullscreen error:', err)
+        ElMessage.error('无法进入全屏: ' + err.message)
+      })
     }
+  } else {
+    ElMessage.warning('图谱容器未找到')
   }
 }
 
@@ -1729,5 +1970,92 @@ const loadGraphData = async () => {
 .node-group:hover circle {
   stroke: #333;
   stroke-width: 3;
+}
+
+/* View Mode Buttons */
+.view-mode-buttons {
+  margin-right: 12px;
+}
+
+/* Event List Styles */
+.event-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.event-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.event-item:hover {
+  background: #f0f0f0;
+  transform: translateX(4px);
+}
+
+.event-indicator {
+  width: 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.event-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.event-time {
+  font-size: 11px;
+  color: #999;
+  margin-bottom: 4px;
+}
+
+.event-desc {
+  font-size: 13px;
+  color: #333;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.event-tags {
+  display: flex;
+  gap: 4px;
+}
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 16px;
+  background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
+  border-radius: 8px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
 }
 </style>

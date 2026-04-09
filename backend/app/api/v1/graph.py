@@ -14,6 +14,20 @@ from app.services.neo4j_service import neo4j_service
 router = APIRouter(tags=["Knowledge Graph"])
 
 
+# Diagnostic endpoint
+@router.get("/debug")
+def debug_neo4j():
+    """Debug Neo4j connection status"""
+    import os
+    return {
+        "neo4j_connected": neo4j_service.connected,
+        "NEO4J_URI": os.getenv("NEO4J_URI", "not set"),
+        "NEO4J_USER": os.getenv("NEO4J_USER", "not set"),
+        "password_loaded": bool(os.getenv("NEO4J_PASSWORD")),
+        "total_nodes": neo4j_service.get_node_count() if neo4j_service.connected else 0
+    }
+
+
 class GraphNode(BaseModel):
     """Graph node model"""
     id: str

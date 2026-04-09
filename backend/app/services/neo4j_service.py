@@ -30,6 +30,9 @@ class Neo4jService:
             user = os.getenv("NEO4J_USER", "neo4j")
             password = os.getenv("NEO4J_PASSWORD", "password")
             
+            # Debug log
+            logger.info(f"[DEBUG] NEO4J_URI={uri}, NEO4J_USER={user}, Password loaded={bool(password and password != 'password')}")
+            
             self.driver = GraphDatabase.driver(uri, auth=(user, password))
             
             # Test connection
