@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import AlertCenter from '../views/AlertCenter.vue'
 import SmartQuery from '../views/SmartQuery.vue'
 import KnowledgeGraph from '../views/KnowledgeGraph.vue'  // 新组件：时序功能
+import PathAnalysis from '../views/PathAnalysis.vue'  // P2-1: 路径分析
 import TicketCenter from '../views/TicketCenter.vue'
 import TicketDetail from '../views/TicketDetail.vue'
 
@@ -28,6 +29,14 @@ const routes = [
     component: KnowledgeGraph,  // 使用新组件：时序知识图谱
     meta: {
       title: 'Knowledge Graph Pro - GSD Platform'
+    }
+  },
+  {
+    path: '/path-analysis',
+    name: 'PathAnalysis',
+    component: PathAnalysis,  // P2-1: 路径分析
+    meta: {
+      title: 'Path Analysis - GSD Platform'
     }
   },
   {
