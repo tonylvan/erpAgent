@@ -261,7 +261,7 @@
           </template>
 
           <div class="analysis-content">
-            <div v-if="analysisResults.length === 0" class="empty-state">
+            <div v-if="!analysisResults || analysisResults.length === 0" class="empty-state">
               <el-empty description="点击场景或节点查看分析" :image-size="80" />
             </div>
             <div v-else class="analysis-list">
