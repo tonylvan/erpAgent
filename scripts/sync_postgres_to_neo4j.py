@@ -12,11 +12,11 @@ from dotenv import load_dotenv
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', 'backend', '.env'))
 
 # PostgreSQL config
-PG_HOST = os.getenv('POSTGRES_HOST', 'localhost')
-PG_PORT = os.getenv('POSTGRES_PORT', '5432')
-PG_DB = os.getenv('POSTGRES_DB', 'erp')
-PG_USER = os.getenv('POSTGRES_USER', 'postgres')
-PG_PASSWORD = os.getenv('POSTGRES_PASSWORD', 'postgres')
+PG_HOST = os.getenv('DB_HOST', 'localhost')
+PG_PORT = os.getenv('DB_PORT', '5432')
+PG_DB = os.getenv('DB_NAME', 'erpagent')
+PG_USER = os.getenv('DB_USER', 'postgres')
+PG_PASSWORD = os.getenv('DB_PASSWORD', 'Tony1985')
 
 # Neo4j config
 NEO4J_URI = os.getenv('NEO4J_URI', 'bolt://localhost:7687')
