@@ -28,7 +28,7 @@
                 <el-slider
                   v-model="currentTimeIndex"
                   :min="0"
-                  :max="Math.max(timePoints.length - 1, 0)"
+                  :max="Math.max((timePoints?.length || 1) - 1, 0)"
                   :format-tooltip="formatTimePoint"
                   :marks="timeMarks"
                   @change="onTimeChange"
