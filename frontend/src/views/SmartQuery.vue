@@ -207,31 +207,9 @@ import { ElMessage } from 'element-plus'
 const STORAGE_KEY = 'smart-query-history'
 const MAX_HISTORY = 50 // Keep last 50 messages
 
-// API endpoint selection - Hybrid architecture
-const API_ENDPOINTS = {
-  fast: '/api/v1/smart-query-v2/query',  // NL2Cypher - Fast response
-  agent: '/api/v1/smart-query-v3-agent/query'  // OpenClaw Agent - Deep analysis
-}
-
-// Auto-select endpoint based on query complexity
-function selectEndpoint(query: string): 'fast' | 'agent' {
-  const complexKeywords = ['分析', '为什么', '原因', '趋势', '预测', '建议', '如何', '策略', '影响', '评估', '对比', '差异', '异常', '风险', '机会', '深度', '洞察', '归因', '诊断']
-  const simpleKeywords = ['多少', '几个', '哪些', '列表', '排行', 'top', 'Top', '统计', '汇总', '合计', '总数', '平均']
-  
-  const queryLower = query.toLowerCase()
-  const hasComplexKeyword = complexKeywords.some(kw => queryLower.includes(kw.toLowerCase()))
-  const hasSimpleKeyword = simpleKeywords.some(kw => queryLower.includes(kw.toLowerCase()))
-  
-  // Complex queries use agent, simple queries use NL2Cypher
-  // If both exist, prioritize complex (agent)
-  if (hasComplexKeyword) {
-    console.log('[SmartQuery] Complex query detected, using Agent:', query)
-    return 'agent'
-  }
-  
-  console.log('[SmartQuery] Simple query detected, using NL2Cypher:', query)
-  return 'fast'
-}
+// API endpoint - Unified Smart Query API
+// Backend automatically selects the best engine (Neo4j for fast queries, Agent for complex analysis)
+const API_ENDPOINT = '/api/v1/smart-query/query'  // 🚀 Unified API (auto engine selection)
 import {
   Bell,
   ChatDotRound,
