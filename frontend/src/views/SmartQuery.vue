@@ -287,11 +287,6 @@ async function sendMessage() {
   const content = queryInput.value.trim()
   if (!content || loading.value) return
 
-  // Auto-select endpoint based on query complexity
-  const endpoint = selectEndpoint(content)
-  const endpointUrl = API_ENDPOINTS[endpoint]
-  const useAgent = endpoint === 'agent'
-
   // Add user message
   messages.value.push({
     id: Date.now(),
@@ -302,30 +297,22 @@ async function sendMessage() {
 
   queryInput.value = ''
   loading.value = true
-  saveMessages() // Save immediately after user message
+  saveMessages()
 
-  // Scroll to bottom
   await nextTick()
   scrollToBottom()
 
-  // Store the message ID for potential later update
-  const userMessageId = messages.value[messages.value.length - 1].id
-
   try {
-    // Create AbortController for timeout
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), useAgent ? 60000 : 30000) // Agent gets more time
+    const timeoutId = setTimeout(() => controller.abort(), 45000)
 
-    // Call backend API (hybrid architecture)
-    const response = await fetch(endpointUrl, {
+    // Call unified Smart Query API (auto engine selection)
+    const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        query: content,
-        with_reasoning: useAgent // Only use reasoning for agent queries
-      }),
+      body: JSON.stringify({ query: content }),
       signal: controller.signal
     })
 
@@ -337,13 +324,13 @@ async function sendMessage() {
 
     const data = await response.json()
 
-    // Add AI response
     messages.value.push({
       id: Date.now() + 1,
       role: 'assistant',
       content: data.answer || '查询完成',
       timestamp: Date.now(),
-      reasoning: data.reasoning_process, // Agent reasoning steps
+      engine: data.engine,
+      reasoning: data.reasoning_process,
       data: data.chart_config ? { chart: data.chart_config } : 
             data.data_type === 'table' ? { table: data.data } : null,
       suggestedQuestions: data.follow_up || [
@@ -353,28 +340,25 @@ async function sendMessage() {
       ]
     })
     
-    // Success feedback
-    ElMessage.success(useAgent ? '深度分析完成' : '查询完成')
+    ElMessage.success(data.engine === 'agent' ? '深度分析完成' : '查询完成')
   } catch (error: any) {
-    // Only show error if still on this page
     if (error.name === 'AbortError') {
       ElMessage.warning('请求超时，请稍后重试')
     } else {
       ElMessage.error('查询失败，请稍后重试')
     }
     
-    // Add error message with retry option
     messages.value.push({
       id: Date.now() + 1,
       role: 'assistant',
       content: '抱歉，查询过程中出现错误。请点击重试按钮重新发送问题。',
       timestamp: Date.now(),
       isError: true,
-      retryQuery: content // Store the original query for retry
+      retryQuery: content
     })
   } finally {
     loading.value = false
-    saveMessages() // Save after response
+    saveMessages()
     await nextTick()
     scrollToBottom()
   }
