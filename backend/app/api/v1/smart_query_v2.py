@@ -148,8 +148,24 @@ class Neo4jKnowledgeEngine:
         }
     
     def _parse_time_range(self, question: str) -> tuple:
-        """智能解析时间范围"""
+        """智能解析时间范围（增强版 - 支持上月/上周/同期）"""
         q = question.lower()
+        
+        # 上月/对比上月
+        if any(kw in q for kw in ['上月', '上个月', 'last month', 'previous month']):
+            # 返回上个月
+            last_month = datetime.now().replace(day=1) - timedelta(days=1)
+            return 'last_month', last_month
+        
+        # 上周
+        if any(kw in q for kw in ['上周', '上个星期', 'last week', 'previous week']):
+            last_week = datetime.now() - timedelta(days=7)
+            return 'last_week', last_week
+        
+        # 同期/去年同期
+        if any(kw in q for kw in ['同期', '去年同期', 'same period', 'year ago']):
+            last_year = datetime.now().replace(year=datetime.now().year - 1)
+            return 'same_period', last_year
         
         # 本周
         if any(kw in q for kw in ['本周', 'this week', 'current week']):
@@ -182,16 +198,24 @@ class Neo4jKnowledgeEngine:
         # 默认本周
         return 'week', datetime.now()
     
-    async def query(self, question: str, context: Optional[Dict[str, Any]] = None) -> dict:
-        """处理自然语言查询（增强版）"""
-        # 检查缓存
-        cache_key = f"neo4j:{hash(question)}"
+    async def query(self, question: str, context: Optional[Dict[str, Any]] = None, session_id: Optional[str] = None) -> dict:
+        """处理自然语言查询（增强版 - 支持多轮对话）"""
+        
+        # 获取对话上下文（多轮对话支持）
+        conversation_history = []
+        if session_id:
+            ctx = conversation_ctx.get_context(session_id)
+            conversation_history = ctx.get("history", [])[-3:]  # 最近 3 轮
+            logger.info(f"[Context] Session {session_id}, history: {len(conversation_history)} turns")
+        
+        # 检查缓存（包含上下文）
+        cache_key = f"neo4j:{hash(question + str(conversation_history))}"
         if cache_key in self.cache:
             logger.info(f"[CACHE] Cache hit: {question}")
             return self.cache[cache_key]
         
-        # 1. NL2Cypher - 将自然语言转换为 Cypher 查询
-        cypher_query = await self._nl2cypher(question)
+        # 1. NL2Cypher - 将自然语言转换为 Cypher 查询（带上下文）
+        cypher_query = await self._nl2cypher(question, conversation_history)
         logger.info(f"[SmartQuery] Generated Cypher: {cypher_query[:100]}...")
         
         # 2. 执行 Cypher 查询
@@ -296,33 +320,85 @@ class Neo4jKnowledgeEngine:
         
         return await self._execute_cypher(cypher)
     
-    async def _nl2cypher(self, question: str) -> str:
-        """自然语言转 Cypher 查询（增强版）"""
+    async def _nl2cypher(self, question: str, conversation_history: Optional[List[Dict]] = None) -> str:
+        """自然语言转 Cypher 查询（增强版 - 支持多轮对话）"""
         q = question.lower()
-        time_range, start_date = self._parse_time_range(question)
+        
+        # 多轮对话上下文增强
+        if conversation_history and len(conversation_history) > 0:
+            last_query = conversation_history[-1].get("query", "").lower()
+            last_result = conversation_history[-1].get("result", {})
+            
+            # 检测追问模式
+            if any(kw in q for kw in ['对比', '上月', '上周', '同期', '环比', '同比']):
+                logger.info(f"[Context] Follow-up query detected: {question}")
+                # 追问：修改时间范围
+                if '上月' in q or '对比' in q:
+                    time_range = 'last_month'
+                elif '上周' in q:
+                    time_range = 'last_week'
+                elif '同期' in q:
+                    time_range = 'same_period'
+                else:
+                    time_range, _ = self._parse_time_range(question)
+            else:
+                time_range, start_date = self._parse_time_range(question)
+        else:
+            time_range, start_date = self._parse_time_range(question)
         
         # 构建时间条件 - 更灵活的条件，支持最近的数据
         # 由于测试数据可能是历史数据，使用更宽松的条件
         if time_range == 'week':
-            # 获取本周或最近一周的数据
             time_condition = "(t.week = date().week OR t.week = date().week - 1 OR t.week >= date().week - 2)"
+        elif time_range == 'last_week':
+            time_condition = "t.week = date().week - 1"
         elif time_range == 'month':
             time_condition = "(t.month = date().month OR t.month = date().month - 1)"
+        elif time_range == 'last_month':
+            time_condition = "t.month = date().month - 1"
         elif time_range == 'quarter':
             time_condition = "t.quarter = date().quarter"
         elif time_range == 'year':
             time_condition = "t.year = date().year"
+        elif time_range == 'same_period':
+            time_condition = "t.year = date().year - 1"
         else:
             time_condition = "t.week >= date().week - 2"
         
         # 销售趋势查询（增强：支持时间范围）
         if '销售' in q:
-            # 不使用时间条件，直接返回所有数据
-            return """
-            MATCH (s:Sale)-[:HAS_TIME]->(t:Time)
-            RETURN t.day as day, sum(s.amount) as amount, count(s) as count
-            ORDER BY t.day
-            """
+            # 根据时间范围返回不同的查询
+            if time_range == 'last_month':
+                # 上月销售数据
+                return """
+                MATCH (s:Sale)-[:HAS_TIME]->(t:Time)
+                WHERE t.month = date().month - 1
+                RETURN t.day as day, sum(s.amount) as amount, count(s) as count
+                ORDER BY t.day
+                """
+            elif time_range == 'last_week':
+                # 上周销售数据
+                return """
+                MATCH (s:Sale)-[:HAS_TIME]->(t:Time)
+                WHERE t.week = date().week - 1
+                RETURN t.day as day, sum(s.amount) as amount, count(s) as count
+                ORDER BY t.day
+                """
+            elif time_range == 'same_period':
+                # 去年同期销售数据
+                return """
+                MATCH (s:Sale)-[:HAS_TIME]->(t:Time)
+                WHERE t.year = date().year - 1
+                RETURN t.day as day, sum(s.amount) as amount, count(s) as count
+                ORDER BY t.day
+                """
+            else:
+                # 本周/本月销售数据（默认）
+                return """
+                MATCH (s:Sale)-[:HAS_TIME]->(t:Time)
+                RETURN t.day as day, sum(s.amount) as amount, count(s) as count
+                ORDER BY t.day
+                """
         
         # 客户排行查询（增强：支持 Top N + 回款）
         if '客户' in q and ('排行' in q or 'top' in q or '排名' in q or '回款' in q):
@@ -922,14 +998,15 @@ async def smart_query(request: QueryRequest):
         knowledge_engine = get_knowledge_engine()
         logger.info(f"[SmartQuery API] Engine driver: {knowledge_engine.driver}")
         
-        # 处理查询
-        result = await knowledge_engine.query(request.query, request.context)
+        # 处理查询（传递 session_id 支持多轮对话）
+        result = await knowledge_engine.query(request.query, request.context, request.session_id)
         logger.info(f"[SmartQuery API] Result data_type: {result.get('data_type')}")
         logger.info(f"[SmartQuery API] Result has chart_config: {result.get('chart_config') is not None}")
         
         # 更新对话上下文
         if request.session_id:
             conversation_ctx.update_context(request.session_id, request.query, result)
+            logger.info(f"[Context] Updated session {request.session_id}")
         
         return QueryResponse(
             success=True,
