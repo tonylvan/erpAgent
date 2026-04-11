@@ -76,9 +76,6 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# 注册 OpenClaw Agent 模式智能问数 API
-app.include_router(smart_query_openclaw_router, prefix="/api/v1/smart-query-agent", tags=["智能问数 - OpenClaw Agent"])
-
 # CORS 配置 - 支持 localhost、127.0.0.1 和局域网
 app.add_middleware(
     CORSMiddleware,
@@ -125,6 +122,7 @@ app.include_router(smart_query_unified_router, prefix="/api/v1/smart-query")  # 
 app.include_router(smart_query_router, prefix="/api/v1/smart-query-legacy")  # Legacy v1 (deprecated)
 app.include_router(smart_query_v2_router, prefix="/api/v1/smart-query-v2")  # Legacy v2 (still available)
 app.include_router(smart_query_v3_agent_router, prefix="/api/v1/smart-query-v3-agent")  # Legacy v3 (still available)
+app.include_router(smart_query_openclaw_router, prefix="/api/v1/smart-query-agent")  # OpenClaw Agent
 # P0  - ?
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(query_history_router, prefix="/api/v1")

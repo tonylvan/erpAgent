@@ -204,9 +204,12 @@ class OpenClawAgentWrapper:
         # response = await httpx.post(f"{OPENCLAW_URL}/sessions/spawn", json={...})
         
         # 临时方案：返回模拟响应
+        # 从 prompt 中提取查询内容
+        query_text = prompt.split('## 用户查询')[1].split('\n')[0].strip() if '## 用户查询' in prompt else '未知查询'
+        
         return {
             "success": True,
-            "answer": f"📊 **OpenClaw Agent 分析**\n\n关于\"{query}\"的查询结果：\n\n**核心指标：**\n- 数据点 1\n- 数据点 2\n\n**业务洞察：**\n- 趋势分析\n- 异常检测\n- 机会识别",
+            "answer": f"📊 **OpenClaw Agent 分析**\n\n关于\"{query_text}\"的查询结果：\n\n**核心指标：**\n- 数据点 1\n- 数据点 2\n\n**业务洞察：**\n- 趋势分析\n- 异常检测\n- 机会识别",
             "data_type": "text",
             "follow_up": ["查看详细数据", "对比历史趋势", "生成预测报告"],
             "reasoning_process": [
