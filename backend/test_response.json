@@ -1,0 +1,19 @@
+{
+  "success": true,
+  "answer": "📈 **查询完成**\n\n关于\"\"的分析。",
+  "data_type": "text",
+  "data": null,
+  "chart_config": null,
+  "follow_up": [
+    "查看销售数据",
+    "客户分析",
+    "库存预警"
+  ],
+  "reasoning_process": [
+    "1️⃣ **理解问题**：分析查询意图",
+    "2️⃣ **查询知识图谱**：检索相关数据",
+    "3️⃣ **生成回答**：生成分析文本",
+    "4️⃣ **推荐追问**：推荐相关问题"
+  ],
+  "agent_model": "dashscope/glm-5 (fallback)"
+}

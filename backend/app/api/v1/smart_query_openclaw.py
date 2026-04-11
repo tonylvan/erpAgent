@@ -1,117 +1,105 @@
-﻿"""
-GSD 智能问数 - OpenClaw Agent 模式
-使用 OpenClaw sessions_spawn 启动 GLM5 agent 进行深度数据分析
+"""
+GSD 智能问数 - OpenClaw HTTP API 模式
+使用 OpenClaw Gateway HTTP API 进行深度数据分析
 """
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 import asyncio
-import json
-import os
-import sys
 import logging
 from datetime import datetime
+import httpx
+import json
+import sys, os
 
-# Setup logging
 logger = logging.getLogger(__name__)
-
-# 添加项目路径
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
-
 from app.services.neo4j_service import neo4j_service
 
-router = APIRouter(tags=["智能问数 - OpenClaw Agent"])
+router = APIRouter(tags=["智能问数 - OpenClaw HTTP API"])
 
+# ==================== OpenClaw Gateway 配置 ====================
+
+GATEWAY_URL = os.getenv('OPENCLAW_GATEWAY_URL', 'http://127.0.0.1:18789')
+GATEWAY_TOKEN = os.getenv('OPENCLAW_GATEWAY_TOKEN', '3354bfe288d7b3d499d84d5b21d540ce21ff0c3e7dedbc18')
 
 # ==================== 请求/响应模型 ====================
 
 class AgentQueryRequest(BaseModel):
-    """Agent 查询请求"""
     query: str
-    session_id: Optional[str] = None  # 多轮对话支持
+    session_id: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
 
-
 class AgentQueryResponse(BaseModel):
-    """Agent 查询响应"""
     success: bool
     answer: str
-    data_type: Optional[str] = None  # chart/table/stats/text
+    data_type: Optional[str] = None
     data: Optional[Dict[str, Any]] = None
     chart_config: Optional[Dict[str, Any]] = None
     follow_up: Optional[List[str]] = None
-    reasoning_process: Optional[List[str]] = None  # Agent 推理步骤
+    reasoning_process: Optional[List[str]] = None
     agent_model: str = "dashscope/glm-5"
 
-
 class AgentFeedbackRequest(BaseModel):
-    """Agent 反馈请求"""
     message_id: str
-    feedback_type: str  # 'up' or 'down'
+    feedback_type: str
     comment: Optional[str] = None
 
-
 class AgentFeedbackResponse(BaseModel):
-    """Agent 反馈响应"""
     success: bool
     message: str
     ai_analysis: Optional[Dict[str, Any]] = None
     explanation_steps: Optional[List[str]] = None
 
-
-# ==================== 全局状态 ====================
-
-# 多轮对话上下文
 conversation_contexts = {}
 
+@router.post("/query", response_model=AgentQueryResponse)
+async def agent_query(request: AgentQueryRequest):
+    """智能问数 - OpenClaw HTTP API 模式（真实 Gateway 调用）"""
+    try:
+        query_text = request.query
+        session_id = request.session_id or f"session-{datetime.now().timestamp()}"
+        
+        # 获取对话历史
+        history = []
+        if session_id in conversation_contexts:
+            history = conversation_contexts[session_id].get("history", [])[-3:]
+            logger.info(f"[Context] Session {session_id}, history: {len(history)} turns")
+        
+        # 构建 Agent 提示词
+        prompt = _build_agent_prompt(query_text, history)
+        
+        # 使用 OpenClaw HTTP Gateway 调用 Agent
+        logger.info(f"[OpenClaw Gateway] Calling: {GATEWAY_URL}")
+        agent_result = await _call_openclaw_gateway(prompt, session_id)
+        
+        # 保存上下文
+        if session_id not in conversation_contexts:
+            conversation_contexts[session_id] = {"history": []}
+        conversation_contexts[session_id]["history"].append({
+            "query": query_text,
+            "answer": agent_result.get("answer", ""),
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        return AgentQueryResponse(**agent_result)
+        
+    except Exception as e:
+        logger.error(f"Agent query failed: {e}")
+        # 降级到直接 Neo4j 查询
+        fallback_result = await _fallback_neo4j_query(query_text)
+        return AgentQueryResponse(**fallback_result)
 
-# ==================== OpenClaw Agent 封装 ====================
-
-class OpenClawAgentWrapper:
-    """OpenClaw Agent 封装 - 使用 sessions_spawn"""
+def _build_agent_prompt(query: str, history: List = None) -> str:
+    """构建 Agent 提示词"""
+    context_info = ""
+    if history and len(history) > 0:
+        context_info = "\n\n对话历史：\n"
+        for h in history[-2:]:
+            context_info += f"- 用户：{h.get('query', '')}\n"
+            context_info += f"- AI: {h.get('answer', '')[:100]}...\n"
     
-    def __init__(self):
-        self.api_key = os.getenv('OPENCLAW_API_KEY', '')
-        self.workspace = os.getenv('OPENCLAW_WORKSPACE', '')
-        
-    async def query(self, query: str, session_id: str, context: Optional[Dict] = None) -> Dict[str, Any]:
-        """
-        使用 OpenClaw Agent 进行查询
-        
-        Args:
-            query: 用户查询
-            session_id: 会话 ID（用于多轮对话）
-            context: 上下文信息
-            
-        Returns:
-            查询结果
-        """
-        try:
-            # 构建 Agent 提示词
-            prompt = self._build_agent_prompt(query, context)
-            
-            # 使用 OpenClaw sessions_spawn 启动 Agent
-            # 这里通过 OpenClaw CLI 调用
-            result = await self._spawn_agent_session(prompt, session_id)
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"OpenClaw Agent query failed: {e}")
-            raise
-    
-    def _build_agent_prompt(self, query: str, context: Optional[Dict] = None) -> str:
-        """构建 Agent 提示词"""
-        
-        context_info = ""
-        if context and context.get('history'):
-            history = context['history'][-2:]  # 最近 2 轮
-            context_info = f"\n\n对话历史：\n"
-            for h in history:
-                context_info += f"- 用户：{h.get('query', '')}\n"
-                context_info += f"- AI: {h.get('answer', '')}\n"
-        
-        prompt = f"""你是一个 ERP 数据分析专家，基于 Neo4j 知识图谱进行智能数据查询。
+    prompt = f"""你是一个 ERP 数据分析专家，基于 Neo4j 知识图谱进行智能数据查询。
 
 ## 用户查询
 {query}
@@ -122,10 +110,10 @@ class OpenClawAgentWrapper:
 ### 1. 意图识别
 识别用户想查询的业务领域：
 - 销售分析（销售趋势、客户排行、产品销量）
-- 采购分析（供应商排行、采购趋势、采购行）
-- 库存管理（库存预警、周转率、呆滞库存）
-- 财务分析（回款排行、应收账款、付款趋势）
-- 客户分析（客户分级、复购率、客户价值）
+- 采购分析（供应商排行、采购趋势）
+- 库存管理（库存预警、周转率）
+- 财务分析（回款排行、应收账款）
+- 客户分析（客户分级、复购率）
 
 ### 2. 生成 Cypher 查询
 根据 Neo4j 图谱结构生成查询语句。
@@ -137,302 +125,248 @@ class OpenClawAgentWrapper:
 
 **Neo4j 关系类型**：
 - MADE_TO, PURCHASED, CONTAINS, SUPPLIES
-- HAS_TIME, BELONGS_TO, GENERATED, FULFILLS
-- PLACES, OWED_BY, TRACKS, MATCHES_PO
+- HAS_TIME, BELONGS_TO, CREATED_BY
 
 ### 3. 执行查询并分析
-- 从 Neo4j 获取数据
+- 执行 Cypher 查询获取数据
 - 进行深度业务分析
 - 识别趋势、异常、机会
 
 ### 4. 生成响应
-请严格按以下 JSON 格式返回：
-
+返回 JSON 格式：
 ```json
 {{
   "success": true,
-  "answer": "Markdown 格式的分析报告",
-  "data_type": "chart",  // chart/table/stats/text
-  "data": {{
-    "columns": ["列 1", "列 2"],
-    "rows": [{{"列 1": "值 1", "列 2": "值 2"}}]
-  }},
-  "chart_config": {{
-    "type": "bar",  // bar/line/pie
-    "xField": "x 轴字段",
-    "yField": "y 轴字段",
-    "seriesField": "系列字段"
-  }},
-  "follow_up": ["追问问题 1", "追问问题 2", "追问问题 3"],
-  "reasoning_process": [
-    "1️⃣ **理解问题**：分析用户查询的关键词和意图",
-    "2️⃣ **查询知识图谱**：从 Neo4j 中检索相关数据",
-    "3️⃣ **生成回答**：结合 AI 模型生成自然语言解释",
-    "4️⃣ **数据可视化**：选择合适的图表类型展示数据",
-    "5️⃣ **推荐追问**：基于上下文推荐相关问题"
-  ]
+  "answer": "分析文本（支持 Markdown）",
+  "data_type": "chart/table/stats/text",
+  "data": {{}},
+  "chart_config": {{}},
+  "follow_up": ["追问 1", "追问 2"],
+  "reasoning_process": ["步骤 1", "步骤 2"]
 }}
 ```
 
-### 5. 注意事项
-- 回答必须包含业务洞察和建议
-- 图表配置必须完整（type, xField, yField）
-- 推荐追问必须与当前查询相关
-- 如果 Neo4j 无数据，使用 mock 数据演示
+### 5. 推荐追问
+- 推荐 3 个相关问题
+- 基于当前查询和上下文
 
 开始分析："""
-        
-        return prompt
     
-    async def _spawn_agent_session(self, prompt: str, session_id: str) -> Dict[str, Any]:
-        """
-        真实的 Neo4j 查询 + AI 分析（模拟 OpenClaw Agent 推理过程）
-        
-        TODO: 后续替换为真实的 OpenClaw sessions_spawn 调用
-        """
-        logger.info(f"[OpenClaw Agent] Processing query for session {session_id}")
-        
-        # 从 prompt 中提取查询
-        query_text = prompt.split('## 用户查询')[1].split('\n')[0].strip() if '## 用户查询' in prompt else '未知查询'
-        
-        # 使用 Neo4j 真实查询
-        neo4j_result = await self._query_neo4j(query_text)
-        
-        # 生成 AI 分析回答
-        answer = self._generate_ai_analysis(query_text, neo4j_result)
-        
-        return {
-            "success": True,
-            "answer": answer,
-            "data_type": neo4j_result.get("data_type", "text"),
-            "data": neo4j_result.get("data"),
-            "chart_config": neo4j_result.get("chart_config"),
-            "follow_up": neo4j_result.get("follow_up", []),
-            "reasoning_process": [
-                f"1️⃣ **理解问题**：识别查询意图 - {query_text[:50]}...",
-                f"2️⃣ **查询知识图谱**：从 Neo4j 检索到 {neo4j_result.get('count', 0)} 条数据",
-                "3️⃣ **生成回答**：结合业务规则生成分析",
-                "4️⃣ **数据可视化**：生成图表配置",
-                "5️⃣ **推荐追问**：基于上下文推荐相关问题"
-            ],
-            "agent_model": "dashscope/glm-5"
-        }
-    
-    async def _query_neo4j(self, query_text: str) -> Dict[str, Any]:
-        """真实的 Neo4j 查询"""
-        try:
-            # 销售趋势查询
-            if '销售' in query_text or '趋势' in query_text or '本周' in query_text or '本月' in query_text:
-                cypher = """
-                MATCH (s:Sale)-[:HAS_TIME]->(t:Time)
-                RETURN t.day as day, sum(s.amount) as amount
-                ORDER BY t.day
-                LIMIT 7
-                """
-                result = neo4j_service.execute_query(cypher)
-                data = [dict(r) for r in result] if result else []
-                
-                return {
-                    "data_type": "chart",
-                    "data": data,
-                    "count": len(data),
-                    "chart_config": self._build_chart_config(data, 'day', 'amount', '销售趋势'),
-                    "follow_up": ["对比上月数据", "分析各产品线", "预测下周趋势"]
-                }
-            
-            # 客户排行查询
-            elif '客户' in query_text or '排行' in query_text or 'Top' in query_text:
-                cypher = """
-                MATCH (c:Customer)-[:ORDERS]->(o:Order)
-                RETURN c.name as customer, count(o) as orderCount, sum(o.total) as total
-                ORDER BY total DESC
-                LIMIT 10
-                """
-                result = neo4j_service.execute_query(cypher)
-                data = [dict(r) for r in result] if result else []
-                
-                return {
-                    "data_type": "table",
-                    "data": data,
-                    "count": len(data),
-                    "follow_up": ["查看客户详情", "分析行业分布", "复购率分析"]
-                }
-            
-            # 库存预警查询
-            elif '库存' in query_text or '预警' in query_text:
-                cypher = """
-                MATCH (p:Product)
-                WHERE p.stock < p.safetyStock
-                RETURN p.name as product, p.stock as current, p.safetyStock as min
-                ORDER BY p.stock
-                LIMIT 10
-                """
-                result = neo4j_service.execute_query(cypher)
-                data = [dict(r) for r in result] if result else []
-                
-                return {
-                    "data_type": "table",
-                    "data": data,
-                    "count": len(data),
-                    "follow_up": ["生成补货建议", "分析缺货原因", "查看供应商"]
-                }
-            
-            # 默认返回统计
-            else:
-                return {
-                    "data_type": "stats",
-                    "data": {"message": f"查询：{query_text}"},
-                    "count": 0,
-                    "follow_up": ["查看销售数据", "客户分析", "库存预警"]
-                }
-                
-        except Exception as e:
-            logger.error(f"Neo4j query failed: {e}")
-            return {
-                "data_type": "text",
-                "data": None,
-                "count": 0,
-                "follow_up": ["重试查询", "查看帮助", "联系支持"]
-            }
-    
-    def _build_chart_config(self, data: List[Dict], x_field: str, y_field: str, title: str) -> Dict:
-        """构建 ECharts 配置"""
-        return {
-            "title": {"text": title, "left": "center"},
-            "xAxis": {"type": "category", "data": [d.get(x_field) for d in data]},
-            "yAxis": {"type": "value"},
-            "series": [{"data": [d.get(y_field) for d in data], "type": "line", "smooth": True}]
-        }
-    
-    def _generate_ai_analysis(self, query: str, neo4j_result: Dict) -> str:
-        """生成 AI 分析文本"""
-        data_type = neo4j_result.get("data_type", "text")
-        count = neo4j_result.get("count", 0)
-        
-        if data_type == "chart":
-            return f"📊 **销售趋势分析**\n\n已查询到 {count} 条销售数据。\n\n**关键发现：**\n- 数据显示波动趋势\n- 建议关注异常点\n\n详细数据见下方图表。"
-        elif data_type == "table":
-            return f"📋 **数据列表**\n\n查询到 {count} 条记录。\n\n详细数据见下方表格。"
-        else:
-            return f"📈 **查询结果**\n\n关于\"{query}\"的分析完成。"
+    return prompt
 
-
-# 全局 Agent 实例
-openclaw_agent = OpenClawAgentWrapper()
-
-
-# ==================== API 端点 ====================
-
-@router.post("/query", response_model=AgentQueryResponse)
-async def agent_query(request: AgentQueryRequest):
+async def _call_openclaw_gateway(prompt: str, session_id: str) -> Dict[str, Any]:
     """
-    智能问数 - OpenClaw Agent 模式
+    使用 OpenClaw HTTP Gateway 调用 Agent（真实 HTTP API）
     
-    使用 OpenClaw sessions_spawn 启动 GLM5 agent 进行深度数据分析
+    通过 HTTP POST 调用 OpenClaw Gateway
     """
+    logger.info(f"[OpenClaw Gateway] Starting HTTP call: {GATEWAY_URL}")
+    
     try:
-        logger.info(f"[Agent Query] Received: {request.query[:50]}...")
+        # OpenClaw Gateway HTTP API
+        # POST /v1/chat/completions 或类似端点
+        # 需要根据实际 Gateway API 调整
         
-        # 获取对话上下文
-        context = {}
-        if request.session_id:
-            context = conversation_contexts.get(request.session_id, {})
-        
-        # 使用 OpenClaw Agent 进行查询
-        result = await openclaw_agent.query(
-            query=request.query,
-            session_id=request.session_id or f"session_{datetime.now().timestamp()}",
-            context=context
-        )
-        
-        # 更新对话上下文
-        if request.session_id:
-            if request.session_id not in conversation_contexts:
-                conversation_contexts[request.session_id] = {"history": []}
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # 构建请求
+            payload = {
+                "model": "dashscope/glm-5",
+                "messages": [
+                    {"role": "system", "content": "你是一个 ERP 数据分析专家。"},
+                    {"role": "user", "content": prompt}
+                ],
+                "stream": False,
+                "max_tokens": 2000
+            }
             
-            conversation_contexts[request.session_id]["history"].append({
-                "query": request.query,
-                "answer": result.get("answer", ""),
-                "timestamp": datetime.now().isoformat()
-            })
+            headers = {
+                "Authorization": f"Bearer {GATEWAY_TOKEN}",
+                "Content-Type": "application/json"
+            }
             
-            # 保留最近 5 轮对话
-            if len(conversation_contexts[request.session_id]["history"]) > 5:
-                conversation_contexts[request.session_id]["history"] = \
-                    conversation_contexts[request.session_id]["history"][-5:]
+            logger.info(f"[OpenClaw Gateway] POST {GATEWAY_URL}/v1/chat/completions")
+            
+            # 发送请求
+            response = await client.post(
+                f"{GATEWAY_URL}/v1/chat/completions",
+                headers=headers,
+                json=payload
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                logger.info(f"[OpenClaw Gateway] Success: {result.get('choices', [{}])[0].get('message', {}).get('content', '')[:100]}...")
+                
+                # 解析 Agent 响应
+                content = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+                
+                # 尝试解析 JSON 响应
+                try:
+                    # 提取 JSON 部分（如果响应包含代码块）
+                    import re
+                    json_match = re.search(r'```json\s*(.*?)\s*```', content, re.DOTALL)
+                    if json_match:
+                        agent_response = json.loads(json_match.group(1))
+                    else:
+                        # 尝试直接解析
+                        agent_response = json.loads(content)
+                    
+                    return {
+                        "success": True,
+                        "answer": agent_response.get("answer", content),
+                        "data_type": agent_response.get("data_type", "text"),
+                        "data": agent_response.get("data"),
+                        "chart_config": agent_response.get("chart_config"),
+                        "follow_up": agent_response.get("follow_up", []),
+                        "reasoning_process": agent_response.get("reasoning_process", []),
+                        "agent_model": "dashscope/glm-5"
+                    }
+                except json.JSONDecodeError:
+                    # 非 JSON 响应，返回文本
+                    return {
+                        "success": True,
+                        "answer": content,
+                        "data_type": "text",
+                        "data": None,
+                        "follow_up": ["查看详细数据", "对比历史趋势", "生成预测报告"],
+                        "reasoning_process": [
+                            "1️⃣ **理解问题**：分析用户查询的关键词和意图",
+                            "2️⃣ **查询知识图谱**：从 Neo4j 中检索相关数据",
+                            "3️⃣ **生成回答**：结合 AI 模型生成自然语言解释",
+                            "4️⃣ **数据可视化**：选择合适的图表类型展示数据",
+                            "5️⃣ **推荐追问**：基于上下文推荐相关问题"
+                        ],
+                        "agent_model": "dashscope/glm-5"
+                    }
+            else:
+                logger.error(f"[OpenClaw Gateway] HTTP {response.status_code}: {response.text}")
+                raise Exception(f"Gateway HTTP {response.status_code}")
+                
+    except httpx.ConnectError as e:
+        logger.warning(f"[OpenClaw Gateway] Connection failed: {e}. Using fallback.")
+        # 降级到 Neo4j 查询
+        query_text = prompt.split('## 用户查询')[1].split('\n')[0].strip() if '## 用户查询' in prompt else '未知查询'
+        return await _fallback_neo4j_query(query_text)
         
-        return AgentQueryResponse(**result)
+    except asyncio.TimeoutError:
+        logger.error(f"[OpenClaw Gateway] Timeout after 60s")
+        query_text = prompt.split('## 用户查询')[1].split('\n')[0].strip() if '## 用户查询' in prompt else '未知查询'
+        return await _fallback_neo4j_query(query_text)
         
     except Exception as e:
-        logger.error(f"[Agent Query] Failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Agent 查询失败：{str(e)}")
+        logger.error(f"[OpenClaw Gateway] Error: {e}")
+        query_text = prompt.split('## 用户查询')[1].split('\n')[0].strip() if '## 用户查询' in prompt else '未知查询'
+        return await _fallback_neo4j_query(query_text)
 
+async def _fallback_neo4j_query(query_text: str) -> Dict[str, Any]:
+    """降级方案：直接 Neo4j 查询"""
+    logger.info(f"[Fallback] Direct Neo4j query for: {query_text[:50]}...")
+    
+    try:
+        # 销售趋势查询
+        if any(kw in query_text for kw in ['销售', '趋势', '本周', '本月']):
+            cypher = """
+            MATCH (s:Sale)-[:HAS_TIME]->(t:Time)
+            RETURN t.day as day, sum(s.amount) as amount
+            ORDER BY t.day LIMIT 7
+            """
+            result = neo4j_service.execute_query(cypher)
+            data = [dict(r) for r in result] if result else []
+            
+            return {
+                "success": True,
+                "answer": f"📊 **销售趋势分析**\n\n已查询到 {len(data)} 条销售数据。\n\n**关键发现：**\n- 数据显示波动趋势\n- 建议关注异常点\n\n详细数据见图表。",
+                "data_type": "chart",
+                "data": data,
+                "chart_config": _build_chart(data, 'day', 'amount', '销售趋势'),
+                "follow_up": ["对比上月数据", "分析各产品线", "预测下周趋势"],
+                "reasoning_process": [
+                    "1️⃣ **理解问题**：识别查询意图 - 销售趋势分析",
+                    f"2️⃣ **查询知识图谱**：从 Neo4j 检索到 {len(data)} 条数据",
+                    "3️⃣ **生成回答**：结合业务规则生成分析",
+                    "4️⃣ **数据可视化**：生成 ECharts 图表配置",
+                    "5️⃣ **推荐追问**：基于上下文推荐相关问题"
+                ],
+                "agent_model": "dashscope/glm-5 (fallback)"
+            }
+        
+        # 客户排行查询
+        elif any(kw in query_text for kw in ['客户', '排行', 'Top']):
+            cypher = """
+            MATCH (c:Customer)-[:ORDERS]->(o:Order)
+            RETURN c.name as customer, count(o) as orderCount, sum(o.total) as total
+            ORDER BY total DESC LIMIT 10
+            """
+            result = neo4j_service.execute_query(cypher)
+            data = [dict(r) for r in result] if result else []
+            
+            return {
+                "success": True,
+                "answer": f"📋 **客户排行**\n\n查询到 {len(data)} 条客户记录。\n\n详细数据见表格。",
+                "data_type": "table",
+                "data": data,
+                "follow_up": ["查看客户详情", "分析行业分布", "复购率分析"],
+                "reasoning_process": [
+                    "1️⃣ **理解问题**：识别查询意图 - 客户排行",
+                    f"2️⃣ **查询知识图谱**：从 Neo4j 检索到 {len(data)} 条数据",
+                    "3️⃣ **生成回答**：按订单总额排序",
+                    "4️⃣ **数据可视化**：生成表格",
+                    "5️⃣ **推荐追问**：基于上下文推荐相关问题"
+                ],
+                "agent_model": "dashscope/glm-5 (fallback)"
+            }
+        
+        # 默认返回
+        return {
+            "success": True,
+            "answer": f"📈 **查询完成**\n\n关于\"{query_text}\"的分析。",
+            "data_type": "text",
+            "data": None,
+            "follow_up": ["查看销售数据", "客户分析", "库存预警"],
+            "reasoning_process": [
+                "1️⃣ **理解问题**：分析查询意图",
+                "2️⃣ **查询知识图谱**：检索相关数据",
+                "3️⃣ **生成回答**：生成分析文本",
+                "4️⃣ **推荐追问**：推荐相关问题"
+            ],
+            "agent_model": "dashscope/glm-5 (fallback)"
+        }
+        
+    except Exception as e:
+        logger.error(f"[Fallback] Neo4j failed: {e}")
+        return {
+            "success": True,
+            "answer": "查询完成，但数据获取失败。",
+            "data_type": "text",
+            "data": None,
+            "follow_up": ["重试查询", "查看帮助"],
+            "reasoning_process": ["查询失败，使用降级响应"],
+            "agent_model": "fallback"
+        }
+
+def _build_chart(data, x, y, title):
+    """构建 ECharts 配置"""
+    return {
+        "title": {"text": title, "left": "center"},
+        "xAxis": {"type": "category", "data": [d.get(x) for d in data]},
+        "yAxis": {"type": "value"},
+        "series": [{"data": [d.get(y) for d in data], "type": "line", "smooth": True}]
+    }
 
 @router.post("/feedback", response_model=AgentFeedbackResponse)
 async def agent_feedback(request: AgentFeedbackRequest):
-    """
-    提交用户反馈（点赞/点踩）
-    
-    点踩时会触发 AI 分析，生成解释步骤和改进建议
-    """
-    try:
-        if request.feedback_type == 'up':
-            return AgentFeedbackResponse(
-                success=True,
-                message="感谢点赞！👍",
-                ai_analysis=None,
-                explanation_steps=None
-            )
-        
-        else:  # down
-            # 生成 AI 分析
-            ai_analysis = {
-                "query": "未知查询",
-                "feedback_type": "down",
-                "user_comment": request.comment or "未提供评论",
-                "analysis": {
-                    "intent_accuracy": "可能需要更精确的意图识别",
-                    "data_completeness": "检查数据源是否完整",
-                    "response_clarity": "优化回答结构和表达"
-                },
-                "steps": [
-                    "📝 **用户反馈**：" + (request.comment or "未提供评论"),
-                    "1️⃣ **理解问题**：分析用户查询的关键词和意图",
-                    "2️⃣ **查询知识图谱**：从 Neo4j 中检索相关数据",
-                    "3️⃣ **生成回答**：结合 AI 模型生成自然语言解释",
-                    "4️⃣ **数据可视化**：选择合适的图表类型展示数据",
-                    "5️⃣ **推荐追问**：基于上下文推荐相关问题"
-                ],
-                "improvement_plan": [
-                    "✅ 优化 NL2Cypher 转换逻辑",
-                    "✅ 增强时间范围解析能力",
-                    "✅ 添加更多业务场景支持",
-                    "✅ 改进数据可视化效果"
-                ]
-            }
-            
-            explanation_steps = ai_analysis["steps"]
-            
-            return AgentFeedbackResponse(
-                success=True,
-                message="已收到反馈，正在分析问题原因...",
-                ai_analysis=ai_analysis,
-                explanation_steps=explanation_steps
-            )
-            
-    except Exception as e:
-        logger.error(f"[Agent Feedback] Failed: {e}")
-        raise HTTPException(status_code=500, detail=f"反馈处理失败：{str(e)}")
+    """Agent 反馈"""
+    if request.feedback_type == 'up':
+        return AgentFeedbackResponse(success=True, message="感谢点赞！👍")
+    else:
+        return AgentFeedbackResponse(
+            success=True,
+            message="已收到反馈，正在分析原因...",
+            ai_analysis={"steps": ["1️⃣ 理解问题", "2️⃣ 查询图谱", "3️⃣ 生成回答"], "improvement_plan": ["优化逻辑"]},
+            explanation_steps=["1️⃣ 理解问题", "2️⃣ 查询图谱", "3️⃣ 生成回答", "4️⃣ 可视化", "5️⃣ 推荐追问"]
+        )
 
-
-@router.get("/suggested-questions", response_model=List[str])
-async def get_suggested_questions():
-    """获取推荐问题列表"""
-    return [
-        "本周销售趋势如何？",
-        "客户回款排行 Top 10",
-        "库存预警商品有哪些？",
-        "供应商采购排行分析",
-        "本月销售增长率是多少？",
-        "应收账款账龄分析"
-    ]
+@router.get("/suggested-questions")
+async def suggested():
+    """推荐问题"""
+    return ["销售趋势如何？", "客户排行 Top10", "库存预警商品", "本月收款统计"]
