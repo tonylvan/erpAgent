@@ -21,7 +21,7 @@ from app.api.v1.smart_query import router as smart_query_router
 from app.api.v1.smart_query_v2 import router as smart_query_v2_router
 from app.api.v1.smart_query_v3_agent import router as smart_query_v3_agent_router
 from app.api.v1.smart_query_unified import router as smart_query_unified_router  # New unified API
-from app.api.v1.smart_query_openclaw import router as smart_query_openclaw_router  # OpenClaw Agent mode
+from app.api.v1.smart_query_openclaw_real import router as smart_query_openclaw_router  # OpenClaw Agent mode
 from app.api.v1.auth import router as auth_router
 from app.api.v1.query_history import router as query_history_router
 from app.api.v1.alerts_v3 import router as alerts_v3_router
