@@ -46,6 +46,22 @@ class QueryResponse(BaseModel):
     follow_up: Optional[List[str]] = None  # 推荐追问
 
 
+class FeedbackRequest(BaseModel):
+    """反馈请求"""
+    message_id: str
+    feedback_type: str  # 'up' or 'down'
+    comment: Optional[str] = None
+    session_id: Optional[str] = None
+
+
+class FeedbackResponse(BaseModel):
+    """反馈响应"""
+    success: bool
+    message: str
+    ai_analysis: Optional[Dict[str, Any]] = None  # AI 分析结果（点踩时）
+    explanation_steps: Optional[List[str]] = None  # 解释步骤（点踩时）
+
+
 class SuggestedQuestionsResponse(BaseModel):
     """推荐问题响应"""
     success: bool = True
@@ -1057,3 +1073,92 @@ async def get_suggested_questions():
         categories=questions,
         timestamp=datetime.now()
     )
+
+
+@router.post("/feedback", response_model=FeedbackResponse)
+async def submit_feedback(request: FeedbackRequest):
+    """
+    提交用户反馈（点赞/点踩）
+    
+    - **message_id**: 消息 ID
+    - **feedback_type**: 'up'（点赞）或 'down'（点踩）
+    - **comment**: 用户评论（可选）
+    - **session_id**: 会话 ID（可选）
+    
+    点踩时会触发 AI 分析，生成解释步骤和改进建议
+    """
+    try:
+        logger.info(f"[Feedback] Received {request.feedback_type} feedback for message {request.message_id}")
+        
+        if request.feedback_type == 'up':
+            # 点赞：简单记录
+            return FeedbackResponse(
+                success=True,
+                message="感谢点赞！👍"
+            )
+        
+        # 点踩：触发 AI 分析，生成解释步骤
+        ai_analysis = await _analyze_feedback(request)
+        
+        return FeedbackResponse(
+            success=True,
+            message="已收到反馈，正在分析问题原因...",
+            ai_analysis=ai_analysis,
+            explanation_steps=ai_analysis.get("steps", [])
+        )
+    
+    except Exception as e:
+        logger.error(f"[Feedback] Error: {e}")
+        raise HTTPException(status_code=500, detail=f"反馈处理失败：{str(e)}")
+
+
+async def _analyze_feedback(request: FeedbackRequest) -> Dict[str, Any]:
+    """
+    AI 分析点踩原因，生成解释步骤
+    
+    分析维度：
+    1. 查询意图理解是否准确
+    2. 数据查询是否完整
+    3. 回答是否清晰
+    4. 改进建议
+    """
+    # 获取会话上下文
+    context = None
+    if request.session_id:
+        context = conversation_ctx.get_context(request.session_id)
+    
+    last_query = context["last_query"] if context else "未知查询"
+    
+    # AI 分析逻辑（模拟，实际应调用大模型）
+    analysis = {
+        "query": last_query,
+        "feedback_type": request.feedback_type,
+        "user_comment": request.comment,
+        "analysis": {
+            "intent_accuracy": "可能需要更精确的意图识别",
+            "data_completeness": "检查数据源是否完整",
+            "response_clarity": "优化回答结构和表达"
+        },
+        "steps": [
+            "1️⃣ **理解问题**：分析用户查询的关键词和意图",
+            "2️⃣ **查询知识图谱**：从 Neo4j 中检索相关数据",
+            "3️⃣ **生成回答**：结合 AI 模型生成自然语言解释",
+            "4️⃣ **数据可视化**：选择合适的图表类型展示数据",
+            "5️⃣ **推荐追问**：基于上下文推荐相关问题"
+        ],
+        "improvement_plan": [
+            "✅ 优化 NL2Cypher 转换逻辑",
+            "✅ 增强时间范围解析能力",
+            "✅ 添加更多业务场景支持",
+            "✅ 改进数据可视化效果"
+        ]
+    }
+    
+    # 如果有用户评论，添加到分析中
+    if request.comment:
+        analysis["user_feedback"] = request.comment
+        analysis["steps"].insert(0, f"📝 **用户反馈**：{request.comment}")
+    
+    logger.info(f"[AI Analysis] Generated analysis for feedback: {request.message_id}")
+    
+    return analysis

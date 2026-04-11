@@ -195,6 +195,67 @@
         </div>
       </div>
     </div>
+
+    <!-- 点踩反馈对话框 -->
+    <el-dialog
+      v-model="feedbackDialogVisible"
+      :title="'反馈分析 - ' + (feedbackData.messageId || '未知')"
+      width="700px"
+      :close-on-click-modal="false"
+      @close="closeFeedbackDialog"
+    >
+      <div class="feedback-analysis-container">
+        <!-- 用户评论输入 -->
+        <div class="feedback-comment-section">
+          <label class="feedback-label">
+            <el-icon><Message /></el-icon>
+            请说明您不满意的原因（可选）
+          </label>
+          <el-input
+            v-model="feedbackData.comment"
+            type="textarea"
+            :rows="3"
+            placeholder="例如：回答不准确、数据不完整、图表不清晰等..."
+          />
+        </div>
+
+        <!-- AI 分析步骤 -->
+        <div v-if="feedbackAnalysis.steps && feedbackAnalysis.steps.length > 0" class="feedback-steps-section">
+          <h4 class="steps-title">
+            <el-icon><Operation /></el-icon>
+            回答生成流程
+          </h4>
+          <div class="steps-list">
+            <div v-for="(step, idx) in feedbackAnalysis.steps" :key="idx" class="step-item">
+              <div class="step-number">{{ idx + 1 }}</div>
+              <div class="step-content" v-html="renderMarkdown(step)"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 改进计划 -->
+        <div v-if="feedbackAnalysis.improvement_plan && feedbackAnalysis.improvement_plan.length > 0" class="improvement-section">
+          <h4 class="improvement-title">
+            <el-icon><MagicStick /></el-icon>
+            优化方向
+          </h4>
+          <ul class="improvement-list">
+            <li v-for="(item, idx) in feedbackAnalysis.improvement_plan" :key="idx" class="improvement-item">
+              <span v-html="renderMarkdown(item)"></span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="closeFeedbackDialog">取消</el-button>
+          <el-button type="primary" @click="submitFeedbackWithAnalysis" :loading="submittingFeedback">
+            提交反馈
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -224,7 +285,10 @@ import {
   Promotion,
   InfoFilled,
   RefreshRight,
-  Delete
+  Delete,
+  Operation,
+  MagicStick,
+  Message
 } from '@element-plus/icons-vue'
 import GlobalNav from '../components/GlobalNav.vue'
 
@@ -238,6 +302,16 @@ const messagesContainer = ref<HTMLElement | null>(null)
 const queryInput = ref('')
 const loading = ref(false)
 const messages = ref<any[]>([])
+
+// Feedback state
+const feedbackDialogVisible = ref(false)
+const feedbackData = ref({
+  messageId: '',
+  feedbackType: 'down' as 'up' | 'down',
+  comment: ''
+})
+const feedbackAnalysis = ref<any>({})
+const submittingFeedback = ref(false)
 
 // Quick questions
 const quickQuestions = ref([
@@ -390,8 +464,75 @@ function scrollToBottom() {
   }
 }
 
-function handleFeedback(messageId: number, type: 'up' | 'down') {
-  ElMessage.success(type === 'up' ? '感谢点赞！' : '已收到反馈')
+async function handleFeedback(messageId: number, type: 'up' | 'down') {
+  if (type === 'up') {
+    // 点赞：直接提交
+    try {
+      await fetch('/api/v1/smart-query/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message_id: `msg-${messageId}`,
+          feedback_type: 'up'
+        })
+      })
+      ElMessage.success('感谢点赞！👍')
+    } catch (error) {
+      console.error('[Feedback] Failed to submit up vote:', error)
+      ElMessage.success('感谢点赞！')
+    }
+  } else {
+    // 点踩：打开对话框，显示分析步骤
+    feedbackData.value = {
+      messageId: `msg-${messageId}`,
+      feedbackType: 'down',
+      comment: ''
+    }
+    feedbackAnalysis.value = {}
+    feedbackDialogVisible.value = true
+  }
+}
+
+function closeFeedbackDialog() {
+  feedbackDialogVisible.value = false
+  feedbackData.value = {
+    messageId: '',
+    feedbackType: 'down',
+    comment: ''
+  }
+  feedbackAnalysis.value = {}
+}
+
+async function submitFeedbackWithAnalysis() {
+  submittingFeedback.value = true
+  
+  try {
+    const response = await fetch('/api/v1/smart-query/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message_id: feedbackData.value.messageId,
+        feedback_type: 'down',
+        comment: feedbackData.value.comment || undefined
+      })
+    })
+    
+    const result = await response.json()
+    
+    if (result.success) {
+      // 保存 AI 分析结果
+      feedbackAnalysis.value = result.ai_analysis || {}
+      ElMessage.success('反馈已提交，感谢！')
+      closeFeedbackDialog()
+    } else {
+      ElMessage.error('提交失败，请重试')
+    }
+  } catch (error) {
+    console.error('[Feedback] Failed to submit:', error)
+    ElMessage.error('提交失败，请稍后重试')
+  } finally {
+    submittingFeedback.value = false
+  }
 }
 
 async function copyMessage(content: string) {
