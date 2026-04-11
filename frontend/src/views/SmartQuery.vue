@@ -306,13 +306,20 @@ async function sendMessage() {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 45000)
 
+    // Generate session_id from last user message for multi-turn conversation
+    const lastUserMsg = messages.value.filter(m => m.role === 'user').slice(-1)[0]
+    const sessionId = lastUserMsg ? `session-${lastUserMsg.id}` : `session-${Date.now()}`
+    
     // Call unified Smart Query API (auto engine selection)
     const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ query: content }),
+      body: JSON.stringify({ 
+        query: content,
+        session_id: sessionId
+      }),
       signal: controller.signal
     })
 
