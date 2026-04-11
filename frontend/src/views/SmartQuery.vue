@@ -380,9 +380,11 @@ async function sendMessage() {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 45000)
 
-    // Generate session_id from last user message for multi-turn conversation
-    const lastUserMsg = messages.value.filter(m => m.role === 'user').slice(-1)[0]
-    const sessionId = lastUserMsg ? `session-${lastUserMsg.id}` : `session-${Date.now()}`
+    // Generate session_id from PREVIOUS user message for multi-turn conversation
+    // Use the second-to-last user message to maintain conversation context
+    const userMessages = messages.value.filter(m => m.role === 'user')
+    const previousUserMsg = userMessages.length > 1 ? userMessages.slice(-2)[0] : userMessages[0]
+    const sessionId = previousUserMsg ? `session-${previousUserMsg.id}` : `session-${Date.now()}`
     
     // Call unified Smart Query API (auto engine selection)
     const response = await fetch(API_ENDPOINT, {
