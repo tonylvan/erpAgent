@@ -1540,11 +1540,6 @@ const centerOnNodes = (nodeType: string) => {
   }
 }
 
-// Old center logic (keep for compatibility)
-const centerViewOnNodes = (nodeType: string) => {
-  highlightNodesByType(nodeType)
-}
-
 const resetFilters = () => {
   selectedFilters.value = []
   selectedType.value = ''
