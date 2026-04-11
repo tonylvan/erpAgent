@@ -268,9 +268,9 @@ import { ElMessage } from 'element-plus'
 const STORAGE_KEY = 'smart-query-history'
 const MAX_HISTORY = 50 // Keep last 50 messages
 
-// API endpoint - Unified Smart Query API
-// Backend automatically selects the best engine (Neo4j for fast queries, Agent for complex analysis)
-const API_ENDPOINT = '/api/v1/smart-query/query'  // 🚀 Unified API (auto engine selection)
+// API endpoint - OpenClaw Agent Mode
+// Using OpenClaw sessions_spawn to start GLM5 agent for deep data analysis
+const API_ENDPOINT = '/api/v1/smart-query-agent/query'  // 🤖 OpenClaw Agent Mode
 import {
   Bell,
   ChatDotRound,
