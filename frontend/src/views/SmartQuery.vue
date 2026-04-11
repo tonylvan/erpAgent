@@ -268,9 +268,8 @@ import { ElMessage } from 'element-plus'
 const STORAGE_KEY = 'smart-query-history'
 const MAX_HISTORY = 50 // Keep last 50 messages
 
-// API endpoint - OpenClaw Agent Mode
-// Using OpenClaw sessions_spawn to start GLM5 agent for deep data analysis
-const API_ENDPOINT = '/api/v1/smart-query-agent/query'  // 🤖 OpenClaw Agent Mode
+// API endpoint - Use FastAPI backend directly (more stable)
+const API_ENDPOINT = '/api/v1/smart-query-v2/query'  // 🔄 Backend Mode
 import {
   Bell,
   ChatDotRound,
@@ -386,14 +385,14 @@ async function sendMessage() {
     const previousUserMsg = userMessages.length > 1 ? userMessages.slice(-2)[0] : userMessages[0]
     const sessionId = previousUserMsg ? `session-${previousUserMsg.id}` : `session-${Date.now()}`
     
-    // Call unified Smart Query API (auto engine selection)
+    // Call Smart Query Gateway (OpenAI Compatible API)
     const response = await fetch(API_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ 
-        query: content,
+        messages: [{ role: 'user', content: content }],
         session_id: sessionId
       }),
       signal: controller.signal
@@ -406,24 +405,25 @@ async function sendMessage() {
     }
 
     const data = await response.json()
+    
+    // Extract content from OpenAI format
+    const assistantMessage = data.choices?.[0]?.message?.content || '查询完成'
 
     messages.value.push({
       id: Date.now() + 1,
       role: 'assistant',
-      content: data.answer || '查询完成',
+      content: assistantMessage,
       timestamp: Date.now(),
-      engine: data.engine,
-      reasoning: data.reasoning_process,
-      data: data.chart_config ? { chart: data.chart_config } : 
-            data.data_type === 'table' ? { table: data.data } : null,
-      suggestedQuestions: data.follow_up || [
+      engine: 'gateway',
+      data: null,  // Gateway returns text only for now
+      suggestedQuestions: [
         '详细数据是多少？',
         '与上月对比如何？',
         '导出这个报告'
       ]
     })
     
-    ElMessage.success(data.engine === 'agent' ? '深度分析完成' : '查询完成')
+    ElMessage.success('查询完成')
   } catch (error: any) {
     if (error.name === 'AbortError') {
       ElMessage.warning('请求超时，请稍后重试')
