@@ -2010,7 +2010,8 @@ const loadGraphData = async () => {
   console.log('[KnowledgeGraph] Loading graph data...')
   try {
     // Use relative path for proxy (works with any frontend port)
-    const response = await fetch('/api/v1/graph/')
+    const actualLimit = nodeLimit.value === 'all' ? 1000 : nodeLimit.value;
+    const response = await fetch(`/api/v1/graph/?limit=${actualLimit}`)
     console.log('[KnowledgeGraph] API response status:', response.status)
     const data = await response.json()
     console.log('[KnowledgeGraph] API response data:', data)
