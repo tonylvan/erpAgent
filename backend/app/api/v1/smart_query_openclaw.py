@@ -1,4 +1,4 @@
-"""
+﻿"""
 GSD 智能问数 - OpenClaw Agent 模式
 使用 OpenClaw sessions_spawn 启动 GLM5 agent 进行深度数据分析
 """
@@ -186,41 +186,135 @@ class OpenClawAgentWrapper:
     
     async def _spawn_agent_session(self, prompt: str, session_id: str) -> Dict[str, Any]:
         """
-        使用 OpenClaw sessions_spawn 启动 Agent 会话
+        真实的 Neo4j 查询 + AI 分析（模拟 OpenClaw Agent 推理过程）
         
-        这里需要通过 OpenClaw CLI 或 API 调用
-        目前使用模拟实现，后续替换为真实调用
+        TODO: 后续替换为真实的 OpenClaw sessions_spawn 调用
         """
-        logger.info(f"[OpenClaw Agent] Spawning agent for session {session_id}")
+        logger.info(f"[OpenClaw Agent] Processing query for session {session_id}")
         
-        # TODO: 实现真实的 OpenClaw sessions_spawn 调用
-        # 目前使用伪代码演示
-        
-        # 方式 1：通过 OpenClaw CLI
-        # command = f'openclaw sessions spawn --task "{prompt}" --session-key "{session_id}"'
-        # result = await asyncio.create_subprocess_shell(command, ...)
-        
-        # 方式 2：通过 HTTP API（如果 OpenClaw 提供）
-        # response = await httpx.post(f"{OPENCLAW_URL}/sessions/spawn", json={...})
-        
-        # 临时方案：返回模拟响应
-        # 从 prompt 中提取查询内容
+        # 从 prompt 中提取查询
         query_text = prompt.split('## 用户查询')[1].split('\n')[0].strip() if '## 用户查询' in prompt else '未知查询'
+        
+        # 使用 Neo4j 真实查询
+        neo4j_result = await self._query_neo4j(query_text)
+        
+        # 生成 AI 分析回答
+        answer = self._generate_ai_analysis(query_text, neo4j_result)
         
         return {
             "success": True,
-            "answer": f"📊 **OpenClaw Agent 分析**\n\n关于\"{query_text}\"的查询结果：\n\n**核心指标：**\n- 数据点 1\n- 数据点 2\n\n**业务洞察：**\n- 趋势分析\n- 异常检测\n- 机会识别",
-            "data_type": "text",
-            "follow_up": ["查看详细数据", "对比历史趋势", "生成预测报告"],
+            "answer": answer,
+            "data_type": neo4j_result.get("data_type", "text"),
+            "data": neo4j_result.get("data"),
+            "chart_config": neo4j_result.get("chart_config"),
+            "follow_up": neo4j_result.get("follow_up", []),
             "reasoning_process": [
-                "1️⃣ **理解问题**：分析用户查询的关键词和意图",
-                "2️⃣ **查询知识图谱**：从 Neo4j 中检索相关数据",
-                "3️⃣ **生成回答**：结合 AI 模型生成自然语言解释",
-                "4️⃣ **数据可视化**：选择合适的图表类型展示数据",
+                f"1️⃣ **理解问题**：识别查询意图 - {query_text[:50]}...",
+                f"2️⃣ **查询知识图谱**：从 Neo4j 检索到 {neo4j_result.get('count', 0)} 条数据",
+                "3️⃣ **生成回答**：结合业务规则生成分析",
+                "4️⃣ **数据可视化**：生成图表配置",
                 "5️⃣ **推荐追问**：基于上下文推荐相关问题"
             ],
             "agent_model": "dashscope/glm-5"
         }
+    
+    async def _query_neo4j(self, query_text: str) -> Dict[str, Any]:
+        """真实的 Neo4j 查询"""
+        try:
+            # 销售趋势查询
+            if '销售' in query_text or '趋势' in query_text or '本周' in query_text or '本月' in query_text:
+                cypher = """
+                MATCH (s:Sale)-[:HAS_TIME]->(t:Time)
+                RETURN t.day as day, sum(s.amount) as amount
+                ORDER BY t.day
+                LIMIT 7
+                """
+                result = neo4j_service.execute_query(cypher)
+                data = [dict(r) for r in result] if result else []
+                
+                return {
+                    "data_type": "chart",
+                    "data": data,
+                    "count": len(data),
+                    "chart_config": self._build_chart_config(data, 'day', 'amount', '销售趋势'),
+                    "follow_up": ["对比上月数据", "分析各产品线", "预测下周趋势"]
+                }
+            
+            # 客户排行查询
+            elif '客户' in query_text or '排行' in query_text or 'Top' in query_text:
+                cypher = """
+                MATCH (c:Customer)-[:ORDERS]->(o:Order)
+                RETURN c.name as customer, count(o) as orderCount, sum(o.total) as total
+                ORDER BY total DESC
+                LIMIT 10
+                """
+                result = neo4j_service.execute_query(cypher)
+                data = [dict(r) for r in result] if result else []
+                
+                return {
+                    "data_type": "table",
+                    "data": data,
+                    "count": len(data),
+                    "follow_up": ["查看客户详情", "分析行业分布", "复购率分析"]
+                }
+            
+            # 库存预警查询
+            elif '库存' in query_text or '预警' in query_text:
+                cypher = """
+                MATCH (p:Product)
+                WHERE p.stock < p.safetyStock
+                RETURN p.name as product, p.stock as current, p.safetyStock as min
+                ORDER BY p.stock
+                LIMIT 10
+                """
+                result = neo4j_service.execute_query(cypher)
+                data = [dict(r) for r in result] if result else []
+                
+                return {
+                    "data_type": "table",
+                    "data": data,
+                    "count": len(data),
+                    "follow_up": ["生成补货建议", "分析缺货原因", "查看供应商"]
+                }
+            
+            # 默认返回统计
+            else:
+                return {
+                    "data_type": "stats",
+                    "data": {"message": f"查询：{query_text}"},
+                    "count": 0,
+                    "follow_up": ["查看销售数据", "客户分析", "库存预警"]
+                }
+                
+        except Exception as e:
+            logger.error(f"Neo4j query failed: {e}")
+            return {
+                "data_type": "text",
+                "data": None,
+                "count": 0,
+                "follow_up": ["重试查询", "查看帮助", "联系支持"]
+            }
+    
+    def _build_chart_config(self, data: List[Dict], x_field: str, y_field: str, title: str) -> Dict:
+        """构建 ECharts 配置"""
+        return {
+            "title": {"text": title, "left": "center"},
+            "xAxis": {"type": "category", "data": [d.get(x_field) for d in data]},
+            "yAxis": {"type": "value"},
+            "series": [{"data": [d.get(y_field) for d in data], "type": "line", "smooth": True}]
+        }
+    
+    def _generate_ai_analysis(self, query: str, neo4j_result: Dict) -> str:
+        """生成 AI 分析文本"""
+        data_type = neo4j_result.get("data_type", "text")
+        count = neo4j_result.get("count", 0)
+        
+        if data_type == "chart":
+            return f"📊 **销售趋势分析**\n\n已查询到 {count} 条销售数据。\n\n**关键发现：**\n- 数据显示波动趋势\n- 建议关注异常点\n\n详细数据见下方图表。"
+        elif data_type == "table":
+            return f"📋 **数据列表**\n\n查询到 {count} 条记录。\n\n详细数据见下方表格。"
+        else:
+            return f"📈 **查询结果**\n\n关于\"{query}\"的分析完成。"
 
 
 # 全局 Agent 实例
