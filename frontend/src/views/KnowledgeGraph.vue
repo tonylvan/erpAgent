@@ -163,7 +163,7 @@
             <div class="timeline-actions">
               <el-button 
                 size="small" 
-                :icon="Play" 
+                :icon="VideoPlay" 
                 :type="isAnimating ? 'success' : 'primary'"
                 @click="toggleAnimation"
                 :disabled="timePoints.length === 0"
@@ -533,7 +533,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { ZoomIn, ZoomOut, Refresh, Grid, FullScreen, Close, Search, Play, Setting } from '@element-plus/icons-vue'
+import { ZoomIn, ZoomOut, Refresh, Grid, FullScreen, Close, Search, VideoPlay, Setting } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import * as d3 from 'd3'
 import GlobalNav from '../components/GlobalNav.vue'
