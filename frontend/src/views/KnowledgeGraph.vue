@@ -498,33 +498,6 @@
           </div>
         </el-card>
 
-        <!-- 图谱统计 -->
-        <el-card class="panel-card" shadow="never">
-          <template #header>
-            <div class="card-header">
-              <span>📊 图谱统计</span>
-            </div>
-          </template>
-
-          <div class="stats-grid">
-            <div class="stat-item">
-              <div class="stat-value">{{ nodes.length }}</div>
-              <div class="stat-label">节点</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-value">{{ edges.length }}</div>
-              <div class="stat-label">关系</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-value">{{ temporalEvents.length }}</div>
-              <div class="stat-label">事件</div>
-            </div>
-            <div class="stat-item">
-              <div class="stat-value">{{ timePoints.length }}</div>
-              <div class="stat-label">时间点</div>
-            </div>
-          </div>
-        </el-card>
       </aside>
     </div>
   </div>
@@ -2433,12 +2406,7 @@ const loadGraphData = async () => {
   gap: 4px;
 }
 
-/* Stats Grid */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
+
 
 .stat-item {
   text-align: center;
