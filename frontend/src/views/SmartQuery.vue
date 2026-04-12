@@ -268,9 +268,9 @@ import { ElMessage } from 'element-plus'
 const STORAGE_KEY = 'smart-query-history'
 const MAX_HISTORY = 50 // Keep last 50 messages
 
-// API endpoint - Use Vite proxy (most stable)
+// API endpoint - Smart Query v3 Agent Mode (OpenClaw Agent with reasoning process)
 // Vite proxies /api to backend, avoiding CORS issues
-const API_ENDPOINT = '/api/v1/smart-query-v2/query'  // 🔄 Backend via Vite Proxy
+const API_ENDPOINT = '/api/v1/smart-query-v3-agent/query'  // 🚀 v3 Agent Mode
 
 // Global session ID for multi-turn conversation (fixed for entire conversation)
 const globalSessionId = ref(`session-${Date.now()}`)  // 🎯 Fixed session ID for追问支持
@@ -412,14 +412,27 @@ async function sendMessage() {
     // Extract content from backend format
     const assistantMessage = data.answer || data.message || '查询完成'
     const chartConfig = data.chart_config || null
-    const tableData = data.table || null
+    const tableData = data.data || data.table || null
+    const reasoningProcess = data.reasoning_process || []  // v3 Agent reasoning
+    
+    // Build message with reasoning process (v3 feature)
+    let fullContent = assistantMessage
+    if (reasoningProcess.length > 0) {
+      // Prepend reasoning steps before answer
+      const reasoningText = reasoningProcess.map((step: any) => 
+        `**Step ${step.step}: ${step.action}**\n${step.description}${step.result ? ` → ${step.result}` : ''}`
+      ).join('\n\n')
+      
+      fullContent = `## 🧠 推理过程\n\n${reasoningText}\n\n---\n\n## 📊 查询结果\n\n${assistantMessage}`
+    }
     
     messages.value.push({
       id: Date.now() + 1,
       role: 'assistant',
-      content: assistantMessage,
+      content: fullContent,
       timestamp: Date.now(),
-      engine: data.engine || 'backend',
+      engine: data.engine || 'v3-agent',
+      reasoningProcess: reasoningProcess,  // Store for potential UI display
       data: chartConfig ? { chart: chartConfig } : (tableData ? { table: tableData } : null),
       suggestedQuestions: data.follow_up || [
         '详细数据是多少？',
