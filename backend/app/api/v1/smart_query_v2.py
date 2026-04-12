@@ -361,13 +361,34 @@ class Neo4jKnowledgeEngine:
                 elif '详细' in q or '数据' in q or '是多少' in q:
                     # 详细数据追问：使用上一次查询的上下文
                     logger.info(f"[Context] Detail data follow-up, using last query context")
+                    logger.info(f"[Context] Last query: {last_query}")
                     # 尝试从 last_query 获取查询类型
                     if '销售' in last_query:
-                        return self._get_detailed_sales_query()
+                        # 返回销售详细数据查询
+                        return """
+                        MATCH (s:Sale)-[:HAS_TIME]->(t:Time)
+                        OPTIONAL MATCH (s)-[:CONTAINS]->(p:Product)
+                        RETURN t.day as day, t.week as week, s.amount as amount, p.name as product, s.customer as customer
+                        ORDER BY t.day DESC
+                        LIMIT 20
+                        """
                     elif '客户' in last_query or '回款' in last_query:
-                        return self._get_detailed_customer_query()
+                        # 返回客户详细数据查询
+                        return """
+                        MATCH (c:Customer)
+                        OPTIONAL MATCH (c)-[:PAID]->(p:Payment)
+                        RETURN c.name as customer, c.industry as industry, sum(p.amount) as total_payments, count(p) as payment_count
+                        ORDER BY total_payments DESC
+                        LIMIT 10
+                        """
                     elif '库存' in last_query:
-                        return self._get_detailed_inventory_query()
+                        # 返回库存详细数据查询
+                        return """
+                        MATCH (p:Product)
+                        RETURN p.name as product, p.stock as stock, p.threshold as threshold, p.category as category
+                        ORDER BY p.stock ASC
+                        LIMIT 20
+                        """
                     else:
                         time_range, _ = self._parse_time_range(question)
                 else:
