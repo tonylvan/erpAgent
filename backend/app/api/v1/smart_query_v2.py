@@ -345,16 +345,31 @@ class Neo4jKnowledgeEngine:
             last_query = conversation_history[-1].get("query", "").lower()
             last_result = conversation_history[-1].get("result", {})
             
-            # 检测追问模式
-            if any(kw in q for kw in ['对比', '上月', '上周', '同期', '环比', '同比']):
+            # 检测追问模式（扩展关键词）
+            follow_up_keywords = ['对比', '上月', '上周', '同期', '环比', '同比', '详细', '数据', '是多少', '具体', '细化', '展开', '更多']
+            if any(kw in q for kw in follow_up_keywords):
                 logger.info(f"[Context] Follow-up query detected: {question}")
-                # 追问：修改时间范围
+                logger.info(f"[Context] Last query: {last_query}")
+                
+                # 追问：修改时间范围或查询模式
                 if '上月' in q or '对比' in q:
                     time_range = 'last_month'
                 elif '上周' in q:
                     time_range = 'last_week'
                 elif '同期' in q:
                     time_range = 'same_period'
+                elif '详细' in q or '数据' in q or '是多少' in q:
+                    # 详细数据追问：使用上一次查询的上下文
+                    logger.info(f"[Context] Detail data follow-up, using last query context")
+                    # 尝试从 last_query 获取查询类型
+                    if '销售' in last_query:
+                        return self._get_detailed_sales_query()
+                    elif '客户' in last_query or '回款' in last_query:
+                        return self._get_detailed_customer_query()
+                    elif '库存' in last_query:
+                        return self._get_detailed_inventory_query()
+                    else:
+                        time_range, _ = self._parse_time_range(question)
                 else:
                     time_range, _ = self._parse_time_range(question)
             else:
