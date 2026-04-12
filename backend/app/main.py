@@ -19,7 +19,8 @@ from app.api.routes import router as api_router
 from app.api.v1 import router as api_v1_router
 # from app.api.v1.smart_query import router as smart_query_router  # Archived to temp/
 from app.api.v1.smart_query_v2 import router as smart_query_v2_router
-from app.api.v1.smart_query_v3_agent import router as smart_query_v3_agent_router
+from app.api.v1.smart_query_v3_agent import router as smart_query_v3_agent_router  # Deprecated (OpenClaw timeout)
+from app.api.v1.smart_query_v3_stable import router as smart_query_v3_stable_router  # ✅ Stable version
 # from app.api.v1.smart_query_unified import router as smart_query_unified_router  # Archived to temp/
 # from app.api.v1.smart_query_openclaw import router as smart_query_openclaw_router  # Archived to temp/
 from app.api.v1.auth import router as auth_router
@@ -118,11 +119,12 @@ app.add_middleware(
 # 
 app.include_router(api_router, prefix="/api")  #  API
 app.include_router(api_v1_router, prefix="/api/v1")  #  API v1
-# Smart Query routers - only v2 and v3 (others archived to temp/)
+# Smart Query routers - v2 and v3 stable (others archived to temp/)
 # app.include_router(smart_query_unified_router, prefix="/api/v1/smart-query")  # Archived
 # app.include_router(smart_query_router, prefix="/api/v1/smart-query-legacy")  # Archived
 app.include_router(smart_query_v2_router, prefix="/api/v1/smart-query-v2")  # Available
-app.include_router(smart_query_v3_agent_router, prefix="/api/v1/smart-query-v3-agent")  # Current (v3)
+app.include_router(smart_query_v3_stable_router, prefix="/api/v1/smart-query-v3")  # ✅ Current (v3 stable)
+app.include_router(smart_query_v3_agent_router, prefix="/api/v1/smart-query-v3-agent")  # Deprecated (OpenClaw timeout)
 # app.include_router(smart_query_openclaw_router, prefix="/api/v1/smart-query-agent")  # Archived
 # P0  - ?
 app.include_router(auth_router, prefix="/api/v1")
