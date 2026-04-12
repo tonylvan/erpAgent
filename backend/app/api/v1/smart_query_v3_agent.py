@@ -10,7 +10,12 @@ import asyncio
 import json
 import os
 import sys
+import subprocess
+import logging
 from datetime import datetime
+
+# Setup logging
+logger = logging.getLogger(__name__)
 
 # Add project path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -122,131 +127,81 @@ Think step by step and provide your complete reasoning process."""
 
 async def call_openclaw_agent(query: str, session_id: str, context: Optional[Dict] = None) -> Dict[str, Any]:
     """
-    Call OpenClaw agent via sessions_spawn
+    Call OpenClaw agent via sessions_send
     Returns structured response with reasoning process
     """
     try:
-        # Build prompt
-        system_prompt, user_prompt = build_agent_prompt(query, context)
+        logger.info(f"[OpenClaw] Calling sessions_send for query: {query[:50]}...")
         
-        # For now, use mock response (replace with actual OpenClaw call when available)
-        # In production, use: from openclaw import sessions_spawn
-        agent_response = {
-            "reasoning_steps": [
-                {
-                    "step": 1,
-                    "action": "intent_analysis",
-                    "description": "Analyzing user query intent",
-                    "result": "Data query request identified"
-                },
-                {
-                    "step": 2,
-                    "action": "entity_extraction",
-                    "description": "Extracting entities from query",
-                    "result": "Entities: [customers, sales, time_period]"
-                },
-                {
-                    "step": 3,
-                    "action": "cypher_generation",
-                    "description": "Generating Cypher query for Neo4j",
-                    "result": "MATCH (c:Customer)-[:PURCHASED]->(o:Order) RETURN c.name, sum(o.amount)"
-                },
-                {
-                    "step": 4,
-                    "action": "data_analysis",
-                    "description": "Analyzing query results",
-                    "result": "Found 10 top customers with total sales"
-                }
-            ],
-            "answer": f"""## Query Results
+        # Build message with context
+        context_str = f"\nContext: {json.dumps(context, ensure_ascii=False)}" if context else ""
+        message = f"""Analyze this ERP data query and provide structured response:
 
-Based on your query: **"{query}"**
+Query: {query}{context_str}
 
-### Key Findings:
-- Total records analyzed: 1,234
-- Time period: Last 30 days
-- Top result: Customer ABC with $1.2M sales
-
-### Recommendations:
-1. Focus on top 10 customers for Q2
-2. Monitor customer retention rate
-3. Consider upselling to mid-tier customers
-""",
-            "data_type": "table",
-            "data": {
-                "columns": ["Customer", "Sales", "Orders", "Growth"],
-                "rows": [
-                    ["ABC Corp", "$1,234,567", 145, "+15.3%"],
-                    ["XYZ Ltd", "$987,654", 98, "+8.7%"],
-                    ["123 Inc", "$765,432", 76, "+12.1%"]
-                ]
-            },
-            "chart_config": {
-                "title": {"text": "Sales by Customer", "left": "center"},
-                "tooltip": {"trigger": "axis"},
-                "xAxis": {
-                    "type": "category",
-                    "data": ["ABC Corp", "XYZ Ltd", "123 Inc"],
-                    "axisLabel": {"rotate": 45}
-                },
-                "yAxis": {
-                    "type": "value",
-                    "name": "Sales Amount",
-                    "axisLabel": {"formatter": "${value}"}
-                },
-                "series": [{
-                    "name": "Sales",
-                    "type": "bar",
-                    "data": [1234567, 987654, 765432],
-                    "itemStyle": {"color": "#667eea"}
-                }],
-                "grid": {"left": "3%", "right": "4%", "bottom": "15%", "containLabel": true}
-            },
-            "follow_up": [
-                "Show me the sales trend for ABC Corp",
-                "What products did XYZ Ltd purchase?",
-                "Compare Q1 vs Q2 performance"
-            ]
-        }
+Format your response as:
+1. Key findings
+2. Data analysis  
+3. Recommendations
+"""
         
-        # Update session message count
-        session_manager.increment_message_count(session_id)
+        # Call OpenClaw CLI sessions_send
+        result = subprocess.run(
+            ['openclaw', 'sessions_send',
+             '--label', 'smart-query-agent',
+             '--message', message,
+             '--timeout-seconds', '30'],
+            capture_output=True,
+            text=True,
+            timeout=35
+        )
         
-        return agent_response
-        
-    except Exception as e:
-        # Fallback response - use v2 NL2Cypher
-        logger.warning(f"[Agent Query] Failed, falling back to v2: {e}")
-        
-        # Import v2 engine and query
-        from app.api.v1.smart_query_v2 import get_knowledge_engine
-        
-        try:
-            engine = get_knowledge_engine()
-            v2_response = await engine.query(query)
+        if result.returncode == 0:
+            # Parse response
+            response_text = result.stdout.strip()
+            
+            logger.info(f"[OpenClaw] Response received: {len(response_text)} chars")
             
             return {
-                "reasoning_steps": [{
+                "success": True,
+                "answer": response_text,
+                "data_type": "text",
+                "reasoning_process": [{
                     "step": 1,
-                    "action": "fallback",
-                    "description": "Agent 调用失败，使用 Neo4j 直接查询",
-                    "result": "使用 v2 NL2Cypher 引擎"
+                    "action": "openclaw_agent",
+                    "description": "使用 OpenClaw Agent 分析查询",
+                    "result": f"响应长度：{len(response_text)} 字符"
                 }],
-                "answer": v2_response.get("answer", "查询完成"),
-                "data_type": v2_response.get("data_type", "text"),
-                "data": v2_response.get("data"),
-                "chart_config": v2_response.get("chart_config"),
-                "follow_up": v2_response.get("follow_up", ["查看详细数据", "导出报告"])
+                "follow_up": [
+                    "查看详细数据",
+                    "导出报告",
+                    "与上月对比"
+                ]
             }
-        except Exception as v2_error:
-            logger.error(f"[Agent Query] Both agent and v2 failed: {v2_error}")
-            return {
-                "reasoning_steps": [{
-                    "step": 1,
-                    "action": "error",
-                    "description": "查询失败",
-                    "result": str(v2_error)
-                }],
+        else:
+            logger.warning(f"[OpenClaw] sessions_send failed: {result.stderr}")
+            raise Exception(result.stderr)
+            
+    except Exception as e:
+        logger.warning(f"[OpenClaw] Failed, falling back to v2: {e}")
+        # Fallback to v2 NL2Cypher
+        from app.api.v1.smart_query_v2 import get_knowledge_engine
+        engine = get_knowledge_engine()
+        v2_response = await engine.query(query)
+        
+        return {
+            "reasoning_steps": [{
+                "step": 1,
+                "action": "fallback",
+                "description": "OpenClaw 调用失败，使用 Neo4j 直接查询",
+                "result": "使用 v2 NL2Cypher 引擎"
+            }],
+            "answer": v2_response.get("answer", "查询完成"),
+            "data_type": v2_response.get("data_type", "text"),
+            "data": v2_response.get("data"),
+            "chart_config": v2_response.get("chart_config"),
+            "follow_up": v2_response.get("follow_up", [])
+        }
                 "answer": f"⚠️ 查询失败：{str(e)}\n\n请尝试：\n1. 简化问题\n2. 使用更具体的关键词\n3. 联系管理员检查数据源",
                 "data_type": "text",
                 "follow_up": ["重新提问", "查看帮助文档"]
