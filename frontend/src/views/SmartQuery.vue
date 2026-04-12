@@ -268,8 +268,9 @@ import { ElMessage } from 'element-plus'
 const STORAGE_KEY = 'smart-query-history'
 const MAX_HISTORY = 50 // Keep last 50 messages
 
-// API endpoint - Use FastAPI backend directly (more stable)
-const API_ENDPOINT = '/api/v1/smart-query-v2/query'  // 🔄 Backend Mode
+// API endpoint - Smart Query Gateway (OpenAI Compatible)
+// Gateway URL: http://localhost:50000/v1/chat/completions
+const API_ENDPOINT = 'http://localhost:50000/v1/chat/completions'  // 🚀 Gateway Mode
 import {
   Bell,
   ChatDotRound,
@@ -408,7 +409,7 @@ async function sendMessage() {
     
     // Extract content from OpenAI format
     const assistantMessage = data.choices?.[0]?.message?.content || '查询完成'
-
+    
     messages.value.push({
       id: Date.now() + 1,
       role: 'assistant',
