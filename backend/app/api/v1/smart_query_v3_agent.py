@@ -202,10 +202,6 @@ Format your response as:
             "chart_config": v2_response.get("chart_config"),
             "follow_up": v2_response.get("follow_up", [])
         }
-                "answer": f"⚠️ 查询失败：{str(e)}\n\n请尝试：\n1. 简化问题\n2. 使用更具体的关键词\n3. 联系管理员检查数据源",
-                "data_type": "text",
-                "follow_up": ["重新提问", "查看帮助文档"]
-            }
 
 
 @router.post("/query", response_model=AgentQueryResponse)
