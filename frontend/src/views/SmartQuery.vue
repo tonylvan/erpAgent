@@ -268,9 +268,9 @@ import { ElMessage } from 'element-plus'
 const STORAGE_KEY = 'smart-query-history'
 const MAX_HISTORY = 50 // Keep last 50 messages
 
-// API endpoint - Smart Query Gateway (OpenAI Compatible)
-// Gateway URL: http://localhost:50000/v1/chat/completions
-const API_ENDPOINT = 'http://localhost:50000/v1/chat/completions'  // 🚀 Gateway Mode
+// API endpoint - Use Vite proxy (most stable)
+// Vite proxies /api to backend, avoiding CORS issues
+const API_ENDPOINT = '/api/v1/smart-query-v2/query'  // 🔄 Backend via Vite Proxy
 import {
   Bell,
   ChatDotRound,
@@ -393,7 +393,7 @@ async function sendMessage() {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ 
-        messages: [{ role: 'user', content: content }],
+        query: content,
         session_id: sessionId
       }),
       signal: controller.signal
@@ -407,17 +407,19 @@ async function sendMessage() {
 
     const data = await response.json()
     
-    // Extract content from OpenAI format
-    const assistantMessage = data.choices?.[0]?.message?.content || '查询完成'
+    // Extract content from backend format
+    const assistantMessage = data.answer || data.message || '查询完成'
+    const chartConfig = data.chart_config || null
+    const tableData = data.table || null
     
     messages.value.push({
       id: Date.now() + 1,
       role: 'assistant',
       content: assistantMessage,
       timestamp: Date.now(),
-      engine: 'gateway',
-      data: null,  // Gateway returns text only for now
-      suggestedQuestions: [
+      engine: data.engine || 'backend',
+      data: chartConfig ? { chart: chartConfig } : (tableData ? { table: tableData } : null),
+      suggestedQuestions: data.follow_up || [
         '详细数据是多少？',
         '与上月对比如何？',
         '导出这个报告'
